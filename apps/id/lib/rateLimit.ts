@@ -54,11 +54,10 @@ function getRedisBackend(): RedisBackend {
 
   redisClient = new Redis(env.REDIS_URL, {
     password: redisUrl.password || env.REDIS_TOKEN,
-    maxRetriesPerRequest: 3,
-    retryStrategy(times) {
-      const delay = Math.min(times * 100, 3000);
-      return delay;
-    }
+    maxRetriesPerRequest: 0,
+    retryStrategy: null,
+    enableOfflineQueue: false,
+    lazyConnect: true,
   });
   redisClient.on('error', (error) => {
     console.error('Redis connection error:', error);

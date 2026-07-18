@@ -29,8 +29,13 @@ type HandoffSodium = SodiumModule & {
   crypto_scalarmult: (privateKey: Uint8Array, publicKey: Uint8Array) => Uint8Array
 }
 
+let handoffSodiumPromise: Promise<HandoffSodium> | null = null
+
 async function getHandoffSodium(): Promise<HandoffSodium> {
-  return await initSodium() as HandoffSodium
+  if (!handoffSodiumPromise) {
+    handoffSodiumPromise = initSodium() as Promise<HandoffSodium>
+  }
+  return await handoffSodiumPromise
 }
 
 export function createHandoffCookieName(nonce: string): string {

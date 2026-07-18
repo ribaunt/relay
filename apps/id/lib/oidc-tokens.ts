@@ -246,11 +246,11 @@ export async function getPublicKeyAsJWK(keyType: 'access' | 'id', kid: string): 
   const env = getEnv();
 
   if (keyType === 'access') {
-    const publicKey = await importSPKI(env.OIDC_ACCESS_TOKEN_PUBLIC_KEY_PEM, 'RS256');
+    const publicKey = await importSPKI(normalizePem(env.OIDC_ACCESS_TOKEN_PUBLIC_KEY_PEM), 'RS256');
     const jwk = await exportJWK(publicKey);
     return jwk as Record<string, unknown>;
   } else {
-    const publicKey = await importSPKI(env.OIDC_ID_TOKEN_PUBLIC_KEY_PEM, 'RS256');
+    const publicKey = await importSPKI(normalizePem(env.OIDC_ID_TOKEN_PUBLIC_KEY_PEM), 'RS256');
     const jwk = await exportJWK(publicKey);
     return jwk as Record<string, unknown>;
   }

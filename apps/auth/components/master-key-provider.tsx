@@ -154,6 +154,13 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
   }, [clientSession, masterKeyHex, vaultRestoreLocked])
 
   useEffect(() => {
+    if (masterKeyHex && handoffStatus === "error") {
+      setHandoffStatus("ready")
+      setHandoffError(null)
+    }
+  }, [masterKeyHex, handoffStatus])
+
+  useEffect(() => {
     async function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) {
         return

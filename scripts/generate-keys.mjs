@@ -66,13 +66,14 @@ function setAfterComment(lines, key, value, commentMarker) {
 }
 
 function ensureKeyPair(lines, keyPrefix) {
-  const hasPriv = lines.some((l) => l.includes("BEGIN PRIVATE KEY"))
+  const hasPriv = lines.some((l) => l.startsWith(`${keyPrefix}_PRIVATE_KEY_PEM=`))
   if (hasPriv) return false
 
-  const priv = run("openssl genrsa 2048")
-  const pub = run("openssl pkey -pubout", { input: priv })
-  lines.push(`${keyPrefix}_PRIVATE_KEY_PEM=${priv}`)
-  lines.push(`${keyPrefix}_PUBLIC_KEY_PEM=${pub}`)
+  const privKey = run("openssl genrsa 2048")
+  const privPkcs8 = run("openssl pkcs8 -topk8 -nocrypt", { input: privKey })
+  const pub = run("openssl pkey -pubout", { input: privKey })
+  lines.push(`${keyPrefix}_PRIVATE_KEY_PEM=${privPkcs8.replace(/\n/g, "\\n")}`)
+  lines.push(`${keyPrefix}_PUBLIC_KEY_PEM=${pub.replace(/\n/g, "\\n")}`)
   return true
 }
 

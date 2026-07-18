@@ -120,11 +120,13 @@ export async function GET(request: NextRequest) {
         const domain = resolveSharedCookieDomain(new URL(request.url).hostname)
         const cookieName = `relay_mk_${payload.nonce}`
         const cookieValue = encodePayloadForCookie(payload)
-        const domainSuffix = domain ? `; domain=${domain}` : ""
-        response.headers.append(
-          "Set-Cookie",
-          `${cookieName}=${cookieValue}; Max-Age=60; path=/; SameSite=Lax; Secure${domainSuffix}`
-        )
+        response.cookies.set(cookieName, cookieValue, {
+          maxAge: 60,
+          path: "/",
+          sameSite: "lax",
+          secure: true,
+          domain: domain ?? undefined,
+        })
       } else {
         // For popup mode, store temporarily for popup-complete page
         const handoffPayload = JSON.stringify(tokenResponse.relay_handoff)
@@ -141,6 +143,12 @@ export async function GET(request: NextRequest) {
     return response
   } catch (errorValue) {
     if (errorValue instanceof IdpRequestError) {
+      console.error("OAuth callback IdP error:", {
+        code: errorValue.code,
+        status: errorValue.status,
+        message: errorValue.message,
+      })
+
       if (errorValue.code === "insufficient_scope") {
         return redirectWithError(request, "missing_bootstrap_scope")
       }
@@ -152,6 +160,7 @@ export async function GET(request: NextRequest) {
       return redirectWithError(request, "code_exchange_or_profile_fetch_failed")
     }
 
+    console.error("OAuth callback unexpected error:", errorValue)
     return redirectWithError(request, "callback_processing_failed")
   }
 }

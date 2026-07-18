@@ -23,9 +23,10 @@ type AuthorizationCodeWithHandoff = {
   client_id: string;
 };
 
-function isValidHttpsUrl(value: string): boolean {
+function isValidHttpsOrLocalhostUrl(value: string): boolean {
   try {
-    return new URL(value).protocol === 'https:';
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   } catch {
     return false;
   }
@@ -90,11 +91,11 @@ function getHandoffEligibility(input: {
     return { eligible: false, reason: 'handoff_mode_invalid' };
   }
 
-  if (!isValidHttpsUrl(handoffOrigin)) {
+  if (!isValidHttpsOrLocalhostUrl(handoffOrigin)) {
     return { eligible: false, reason: 'handoff_origin_invalid' };
   }
 
-  if (!isValidHttpsUrl(input.issuer)) {
+  if (!isValidHttpsOrLocalhostUrl(input.issuer)) {
     return { eligible: false, reason: 'issuer_must_be_https' };
   }
 
