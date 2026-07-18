@@ -7,20 +7,20 @@ import { execSync } from "node:child_process"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "..")
 
-const REQUIRED_ID = [
-  ["SITE_URL", "http://localhost:3001"],
-  ["RELAY_SERVICE_AUTH_ORIGIN", "http://localhost:3000"],
-  ["BETTER_AUTH_SECRET", null],
-  ["OIDC_JWKS_ACTIVE_KID", "dev-key-1"],
-  ["REDIS_URL", "redis://localhost:6379"],
-  ["REDIS_TOKEN", "dev-token"],
-  ["POSTHOG_KEY", "phc_placeholder"],
-]
+const ID_ENV_DEFAULTS = {
+  SITE_URL: "http://localhost:3001",
+  RELAY_SERVICE_AUTH_ORIGIN: "http://localhost:3000",
+  BETTER_AUTH_SECRET: null, // generated once if missing
+  OIDC_JWKS_ACTIVE_KID: "dev-key-1",
+  REDIS_URL: "redis://localhost:6379",
+  REDIS_TOKEN: "dev-token",
+  POSTHOG_KEY: "phc_placeholder",
+}
 
-const REQUIRED_AUTH = [
-  ["RELAY_SERVICE_ID_ORIGIN", "http://localhost:3001"],
-  ["RELAY_SESSION_SECRET", "dev-relay-auth-session-secret-not-for-production"],
-]
+const AUTH_ENV_DEFAULTS = {
+  RELAY_SERVICE_ID_ORIGIN: "http://localhost:3001",
+  RELAY_SESSION_SECRET: "dev-relay-auth-session-secret-not-for-production",
+}
 
 function run(cmd, options = {}) {
   return execSync(cmd, { encoding: "utf-8", ...options }).trim()
@@ -78,14 +78,22 @@ function ensureKeyPair(lines, keyPrefix) {
 
 let changed = false
 
+function ensureVar(lines, key, value) {
+  const prefix = `${key}=`
+  const exists = lines.some((l) => l.startsWith(prefix) && !l.startsWith("#"))
+  if (exists) return false
+  lines.push(`${key}=${value}`)
+  return true
+}
+
 // ── relay-id ───────────────────────────────────────────────────────
 let idLines = readLines(resolve(root, "apps/id/.env.local"))
 
-for (const [key, value] of REQUIRED_ID) {
+for (const [key, value] of Object.entries(ID_ENV_DEFAULTS)) {
   if (value !== null) {
     if (setVar(idLines, key, value)) changed = true
-  } else if (key === "BETTER_AUTH_SECRET") {
-    if (setVar(idLines, key, run("openssl rand -base64 32"))) changed = true
+  } else {
+    if (ensureVar(idLines, key, run("openssl rand -base64 32"))) changed = true
   }
 }
 
@@ -97,7 +105,7 @@ writeLines(resolve(root, "apps/id/.env.local"), idLines)
 // ── relay-auth ─────────────────────────────────────────────────────
 let authLines = readLines(resolve(root, "apps/auth/.env.local"))
 
-for (const [key, value] of REQUIRED_AUTH) {
+for (const [key, value] of Object.entries(AUTH_ENV_DEFAULTS)) {
   if (setVar(authLines, key, value)) changed = true
 }
 
