@@ -1,0 +1,527 @@
+.dashboardContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 28px;
+  background: var(--background);
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px;
+  background: var(--background);
+}
+
+.loadingContent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.loadingIcon {
+  color: var(--accent);
+  animation: iosSpinning 1s linear infinite;
+  flex-shrink: 0;
+}
+
+.loadingText {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+@keyframes iosSpinning {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.dashboardCard {
+  width: 100%;
+  max-width: 620px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.logoMark {
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.logoText {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userMenuWrapper {
+  position: relative;
+}
+
+.userMenuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.userMenuButton:hover,
+.userMenuButton:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 14%, transparent);
+  outline: none;
+}
+
+.userMenuButton:active {
+  transform: translateY(1px);
+}
+
+.userMenuButtonOpen {
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+}
+
+.userIdentity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  min-width: 112px;
+}
+
+.userMenuHint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.userMenuChevron {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.userMenuChevronOpen {
+  transform: rotate(180deg);
+}
+
+.userMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 230px;
+  border-radius: calc(var(--radius-sm) + 4px);
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 92%, var(--background));
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.2),
+    0 3px 10px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  z-index: 20;
+  animation: userMenuEnter 140ms ease;
+}
+
+.userMenuHeader {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+}
+
+.userMenuHeaderTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.userMenuHeaderSub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.userMenuItem {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.userMenuItemIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  font-size: 18px;
+  line-height: 1;
+  color: #fff;
+}
+
+.userMenuItem:hover,
+.userMenuItem:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.userMenuItem:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.userMenuDanger {
+  color: var(--error);
+}
+
+.userMenuDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 8px;
+}
+
+.userAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--border-focus) 25%, var(--border));
+  background: color-mix(in oklab, var(--accent) 16%, var(--surface));
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.userAvatarImage {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--border-focus) 25%, var(--border));
+  object-fit: cover;
+}
+
+.userDetails {
+  text-align: right;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 170px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes userMenuEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .userMenu,
+  .userMenuButton,
+  .userMenuChevron,
+  .userMenuItem {
+    animation: none;
+    transition: none;
+  }
+}
+
+.userEmail {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.hero {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  background:
+    radial-gradient(
+      120% 150% at 0% 0%,
+      color-mix(in oklab, var(--accent) 14%, transparent),
+      transparent 55%
+    ),
+    var(--surface);
+  margin-bottom: 24px;
+}
+
+.hero .subtitle {
+  margin-bottom: 0;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primaryAction,
+.secondaryAction {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.primaryAction {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.primaryAction:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.secondaryAction {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.secondaryAction:hover {
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sectionHint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.servicesGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.serviceCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+  text-align: left;
+}
+
+.serviceEnabled:hover {
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
+}
+
+.serviceDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.serviceDisabled:hover {
+  background: var(--surface);
+}
+
+.serviceIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 11%, var(--surface-hover));
+  flex-shrink: 0;
+}
+
+.serviceIconImage {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.iconPlaceholder {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.serviceContent {
+  flex: 1;
+}
+
+.serviceName {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.serviceDescription {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.serviceMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.comingSoonBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 128px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 600px) {
+  .dashboardContainer {
+    padding: 16px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .userInfo {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .userMenu {
+    left: 0;
+    right: auto;
+    min-width: min(280px, calc(100vw - 32px));
+  }
+
+  .userDetails {
+    text-align: left;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

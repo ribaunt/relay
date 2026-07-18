@@ -1,0 +1,409 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.logo {
+  display: flex;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logoMark {
+  display: inline-block;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  margin-bottom: 0;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.input:focus {
+  border-color: var(--border-focus);
+}
+
+.inputError {
+  border-color: var(--error);
+}
+
+.passwordWrapper {
+  position: relative;
+}
+
+.passwordWrapper .input {
+  width: 100%;
+}
+
+.passwordInput {
+  padding-right: 88px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.passwordToggle:hover {
+  color: var(--text-secondary);
+  background: var(--surface-hover);
+}
+
+.passwordToggle:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
+
+.button {
+  height: 42px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+  margin-top: 4px;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alert {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.alertError {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.alertSuccess {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.link {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--accent);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Recovery key display */
+
+.recoveryBox {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 4px;
+}
+
+.recoveryTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.recoveryWarning {
+  font-size: 12px;
+  color: var(--error);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.recoveryWords {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 14px;
+  line-height: 2;
+  color: var(--text-primary);
+  word-spacing: 4px;
+  user-select: all;
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.recoveryActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.buttonSecondary {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  flex: 1;
+}
+
+.buttonSecondary:hover {
+  background: var(--surface-hover);
+}
+
+/* Verification code input — 6-digit OTP boxes */
+
+.codeGroup {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.codeBox {
+  width: 46px;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 22px;
+  font-family: var(--font-geist-mono), monospace;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s ease;
+  caret-color: var(--accent);
+}
+
+.codeBox:focus {
+  border-color: var(--border-focus);
+}
+
+.codeBox::placeholder {
+  color: var(--text-tertiary);
+  font-size: 16px;
+}
+
+/* Loading spinner */
+
+.spinner {
+  display: block;
+  color: var(--accent-text);
+  animation: iosSpinning 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes iosSpinning {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Step indicator */
+
+.steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.step {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+.stepActive {
+  background: var(--accent);
+}
+
+.stepDone {
+  background: var(--success);
+}
+
+/* Password strength */
+
+.strengthContainer {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-4px);
+  transition:
+    max-height 0.24s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    margin-top 0.2s ease;
+  margin-top: 0;
+}
+
+.strengthContainerVisible {
+  max-height: 96px;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 4px;
+}
+
+.strengthBar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strengthFill {
+  height: 100%;
+  border-radius: 2px;
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
+}
+
+.strengthLabel {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  text-align: right;
+}
+
+.fieldHint {
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+.fieldHintError {
+  color: var(--error);
+}
