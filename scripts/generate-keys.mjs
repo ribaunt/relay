@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs"
+import { resolve, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
+import { execSync } from "node:child_process"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = resolve(__dirname, "..")
+
+const REQUIRED_ID = [
+  ["SITE_URL", "http://localhost:3001"],
+  ["RELAY_SERVICE_AUTH_ORIGIN", "http://localhost:3000"],
+  ["BETTER_AUTH_SECRET", null],
+  ["OIDC_JWKS_ACTIVE_KID", "dev-key-1"],
+  ["REDIS_URL", "redis://localhost:6379"],
+  ["REDIS_TOKEN", "dev-token"],
+  ["POSTHOG_KEY", "phc_placeholder"],
+]
+
+const REQUIRED_AUTH = [
+  ["RELAY_SERVICE_ID_ORIGIN", "http://localhost:3001"],
+  ["RELAY_SESSION_SECRET", "dev-relay-auth-session-secret-not-for-production"],
+]
+
+function run(cmd, options = {}) {
+  return execSync(cmd, { encoding: "utf-8", ...options }).trim()
+}
+
+function readLines(path) {
+  if (!existsSync(path)) return []
+  return readFileSync(path, "utf-8").split("\n")
+}
+
+function writeLines(path, lines) {
+  writeFileSync(path, lines.join("\n"))
+}
+
+function setVar(lines, key, value) {
+  const prefix = `${key}=`
+  const idx = lines.findIndex((l) => l.startsWith(prefix) && !l.startsWith("#"))
+  const entry = `${prefix}${value}`
+
+  if (idx !== -1) {
+    if (lines[idx] === entry) return false
+    lines[idx] = entry
+    return true
+  }
+
+  lines.push(entry)
+  return true
+}
+
+function setAfterComment(lines, key, value, commentMarker) {
+  const prefix = `${key}=`
+  const exists = lines.find((l) => l.startsWith(prefix))
+  if (exists) return false
+
+  const commentIdx = lines.findIndex((l) => l.includes(commentMarker))
+  const entry = `${key}=${value}`
+  if (commentIdx !== -1) {
+    lines.splice(commentIdx + 1, 0, entry)
+  } else {
+    lines.push(entry)
+  }
+  return true
+}
+
+function ensureKeyPair(lines, keyPrefix) {
+  const hasPriv = lines.some((l) => l.includes("BEGIN PRIVATE KEY"))
+  if (hasPriv) return false
+
+  const priv = run("openssl genrsa 2048")
+  const pub = run("openssl pkey -pubout", { input: priv })
+  lines.push(`${keyPrefix}_PRIVATE_KEY_PEM=${priv}`)
+  lines.push(`${keyPrefix}_PUBLIC_KEY_PEM=${pub}`)
+  return true
+}
+
+let changed = false
+
+// ── relay-id ───────────────────────────────────────────────────────
+let idLines = readLines(resolve(root, "apps/id/.env.local"))
+
+for (const [key, value] of REQUIRED_ID) {
+  if (value !== null) {
+    if (setVar(idLines, key, value)) changed = true
+  } else if (key === "BETTER_AUTH_SECRET") {
+    if (setVar(idLines, key, run("openssl rand -base64 32"))) changed = true
+  }
+}
+
+if (ensureKeyPair(idLines, "OIDC_ACCESS_TOKEN")) changed = true
+if (ensureKeyPair(idLines, "OIDC_ID_TOKEN")) changed = true
+
+writeLines(resolve(root, "apps/id/.env.local"), idLines)
+
+// ── relay-auth ─────────────────────────────────────────────────────
+let authLines = readLines(resolve(root, "apps/auth/.env.local"))
+
+for (const [key, value] of REQUIRED_AUTH) {
+  if (setVar(authLines, key, value)) changed = true
+}
+
+writeLines(resolve(root, "apps/auth/.env.local"), authLines)
+
+if (changed) {
+  console.log("✓ Keys and env vars generated")
+} else {
+  console.log("✓ All keys and env vars already present")
+}

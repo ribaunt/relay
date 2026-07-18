@@ -3,13 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "pnpm --parallel -r dev",
+    "dev": "node scripts/generate-keys.mjs && concurrently -n auth,id -c cyan,magenta \"pnpm dev:auth\" \"pnpm dev:id\"",
+    "dev:auth": "pnpm --filter @relay/auth dev",
+    "dev:id": "pnpm --filter @relay/id dev",
+    "dev:setup": "node scripts/generate-keys.mjs",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write \"**/*.{ts,tsx}\""
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "typescript": "^5.9.3"
