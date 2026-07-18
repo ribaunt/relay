@@ -12,9 +12,16 @@ export {
   generateMasterKey,
   encryptMasterKey,
   decryptMasterKey,
+  rotateMasterKey,
+  generateNewMasterKeyBundle,
 } from "./master-key"
 
-export { deriveSubkey } from "./subkey"
+export {
+  deriveSubkey,
+  KDF_CONTEXT,
+  validateKdfContext,
+  type KdfContext,
+} from "./subkey"
 
 export {
   encryptWithMasterKey,

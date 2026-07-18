@@ -8,7 +8,13 @@ export const initSodium = async (): Promise<SodiumModule> => {
 }
 
 export const KDF_PARAMS = {
-  MEM_LIMIT: 67108864,
+  MEM_LIMIT: 134217728,
   OPS_LIMIT: 3,
+  KEY_LENGTH: 32,
+} as const
+
+export const KDF_PARAMS_RECOMMENDED = {
+  MEM_LIMIT: 268435456,
+  OPS_LIMIT: 4,
   KEY_LENGTH: 32,
 } as const

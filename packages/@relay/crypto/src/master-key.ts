@@ -1,3 +1,17 @@
+/**
+ * Threat model notes (RLY-010):
+ * - Master key is generated client-side, never sent to server in plaintext
+ * - Server stores only Argon2id-encrypted blobs; compromise yields no key material
+ * - XSalsa20-Poly1305 (crypto_secretbox) provides authenticated encryption
+ * - Side-channel resistance depends on libsodium's constant-time operations
+ *
+ * Metadata leakage notes (RLY-011):
+ * - Timestamps (storedAt, createdAt) are visible in encrypted blobs
+ * - File sizes of encrypted payloads may reveal approximate plaintext size
+ * - Upload/request counts reveal user activity patterns
+ * - Consider adding padding to encrypted payloads for large-file scenarios
+ */
+
 import { initSodium } from "./sodium"
 import { deriveKEK } from "./kdf"
 import type { BootstrapPayload } from "@relay/types"
@@ -5,6 +19,24 @@ import type { BootstrapPayload } from "@relay/types"
 export async function generateMasterKey(): Promise<Uint8Array> {
   const sodium = await initSodium()
   return sodium.randombytes_buf(32)
+}
+
+export async function rotateMasterKey(
+  currentEncryptedMasterKey: string,
+  currentIv: string,
+  currentKek: Uint8Array,
+  newKek: Uint8Array,
+): Promise<{ encrypted: string; iv: string }> {
+  const plaintext = await decryptMasterKey(currentEncryptedMasterKey, currentIv, currentKek)
+  return encryptMasterKey(plaintext, newKek)
+}
+
+export async function generateNewMasterKeyBundle(
+  newKek: Uint8Array,
+): Promise<{ masterKey: Uint8Array; encrypted: string; iv: string }> {
+  const masterKey = await generateMasterKey()
+  const { encrypted, iv } = await encryptMasterKey(masterKey, newKek)
+  return { masterKey, encrypted, iv }
 }
 
 export async function encryptMasterKey(

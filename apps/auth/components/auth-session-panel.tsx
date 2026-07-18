@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 
 import { useMasterKey } from "@/components/master-key-provider"
 import { decryptMasterKeyWithPassword } from "@/lib/auth/browser-crypto"
-import { persistDecryptedMasterKeyForSubject } from "@/lib/auth/master-key-vault"
 import { sealMasterKeyForSubject } from "@/lib/auth/master-key-vault"
 import type { PublicSession } from "@/lib/auth/types"
 
@@ -70,12 +69,11 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
       const result = await decryptMasterKeyWithPassword(resolvedSession.bootstrap, password)
       setDecryptResult(result)
       setMasterKeyHex(result)
-      persistDecryptedMasterKeyForSubject(resolvedSession.sub, result)
       try {
         await sealMasterKeyForSubject(resolvedSession.sub, result)
         setVaultMessage("Master key decrypted and stored in secure device vault.")
       } catch {
-        setVaultMessage("Master key decrypted in memory, but secure vault storage failed.")
+        setVaultMessage("Master key decrypted in memory only — vault storage unavailable.")
       }
     } catch {
       setDecryptError(

@@ -4,6 +4,15 @@ import {
 } from 'convex/server';
 import { v } from 'convex/values';
 
+/**
+ * Device approval (RLY-009):
+ * TODO: New devices should require approval before full access.
+ * Approach: Store device fingerprint on session creation. When a new
+ * fingerprint is seen, mark session as "pending_approval" and notify
+ * the user via email. The user approves or denies from an existing
+ * trusted session. Block bootstrap/handoff for unapproved devices.
+ */
+
 // ─── createSession ────────────────────────────────────────────────────────────
 // Stores the SHA-256 hash of the session token. Never stores the raw token.
 

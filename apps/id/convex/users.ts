@@ -541,3 +541,55 @@ export const getEncryptedMasterKeyById = query({
     };
   }
 });
+
+// ─── rotateMasterKey ──────────────────────────────────────────────────────────
+// Called during explicit security reset. Replaces the user's encrypted master key
+// bundles. The client generates a new master key, re-encrypts all vault data
+// client-side, then sends the new encrypted bundles here.
+// Requires that the user authenticates and provides both password and recovery
+// encrypted bundles to ensure they don't get locked out.
+
+export const rotateMasterKey = mutation({
+  args: {
+    user_id: v.id('users'),
+    encrypted_master_key: v.string(),
+    iv: v.string(),
+    kek_salt: v.string(),
+    kdf_mem_limit: v.number(),
+    kdf_ops_limit: v.number(),
+    recovery_encrypted_master_key: v.string(),
+    recovery_iv: v.string(),
+    recovery_kek_salt: v.string()
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.user_id);
+    if (user === null) throw new Error('USER_NOT_FOUND');
+
+    const keyRecord = await ctx.db
+      .query('encrypted_keys')
+      .withIndex('by_user', (q) => q.eq('user_id', args.user_id))
+      .unique();
+
+    if (keyRecord === null) throw new Error('KEY_RECORD_NOT_FOUND');
+
+    const now = Date.now();
+
+    await ctx.db.patch(keyRecord._id, {
+      encrypted_master_key: args.encrypted_master_key,
+      iv: args.iv,
+      kek_salt: args.kek_salt,
+      kdf_mem_limit: args.kdf_mem_limit,
+      kdf_ops_limit: args.kdf_ops_limit,
+      recovery_encrypted_master_key: args.recovery_encrypted_master_key,
+      recovery_iv: args.recovery_iv,
+      recovery_kek_salt: args.recovery_kek_salt,
+      updated_at: now
+    });
+
+    await ctx.db.insert('audit_log', {
+      user_id: args.user_id,
+      event_type: 'key_rotated' as const,
+      created_at: now
+    });
+  }
+});

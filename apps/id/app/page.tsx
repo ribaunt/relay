@@ -130,6 +130,25 @@ export default function Home() {
     try {
       window.localStorage.clear();
       window.sessionStorage.clear();
+
+      if (window.caches) {
+        const cacheKeys = await window.caches.keys();
+        await Promise.all(cacheKeys.map((k) => window.caches.delete(k)));
+      }
+
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((r) => r.unregister()));
+      }
+
+      if (window.indexedDB) {
+        const databases = await window.indexedDB.databases();
+        await Promise.all(
+          databases
+            .filter((db) => db.name)
+            .map((db) => window.indexedDB.deleteDatabase(db.name!))
+        );
+      }
     } catch {
       // Ignore storage cleanup failures.
     }

@@ -1,3 +1,13 @@
+/**
+ * Signed builds (RLY-013):
+ * TODO: Implement reproducible builds and signed releases.
+ * - Use SLSA provenance for CI/CD pipelines
+ * - Sign release artifacts with cosign or Sigstore
+ * - Publish checksums via TUF or a transparency log
+ * - Consider `next build --experimental-build-mode=compile` for
+ *   deterministic output once stable
+ */
+
 import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 import { withPostHogConfig } from '@posthog/nextjs-config';

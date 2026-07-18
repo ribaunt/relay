@@ -27,14 +27,12 @@ import {
 } from "@/lib/auth/master-key-handoff"
 import {
   clearMasterKeyVault,
-  clearDecryptedMasterKeyForSubject,
   loadSealedMasterKeyForSubject,
-  loadDecryptedMasterKeyForSubject,
-  persistDecryptedMasterKeyForSubject,
   sealMasterKeyForSubject,
 } from "@/lib/auth/master-key-vault"
 
 const HANDOFF_COMPLETE_MESSAGE_TYPE = "relay.masterkey_handoff_complete"
+const IDLE_LOCK_TIMEOUT_MS = 15 * 60 * 1000
 
 type MasterKeyContextValue = {
   clientSession: PublicSession | null
@@ -99,6 +97,58 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
   const [handoffError, setHandoffError] = useState<string | null>(null)
   const [vaultRestoreLocked, setVaultRestoreLocked] = useState(false)
   const pendingRef = useRef(false)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activityHandlerRef = useRef<(() => void) | null>(null)
+  const masterKeyRef = useRef<string | null>(null)
+
+  // Keep ref in sync for idle lock access
+  useEffect(() => {
+    masterKeyRef.current = masterKeyHex
+  }, [masterKeyHex])
+
+  const lockMasterKey = useCallback(() => {
+    setVaultRestoreLocked(true)
+    setMasterKeyHex(null)
+  }, [])
+
+  // ── Idle lock ──────────────────────────────────────────────────────────────
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+    }
+
+    if (!masterKeyRef.current) {
+      return
+    }
+
+    idleTimerRef.current = setTimeout(() => {
+      lockMasterKey()
+    }, IDLE_LOCK_TIMEOUT_MS)
+  }, [lockMasterKey])
+
+  useEffect(() => {
+    const handler = () => {
+      resetIdleTimer()
+    }
+
+    activityHandlerRef.current = handler
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "wheel"]
+    for (const event of events) {
+      window.addEventListener(event, handler, { passive: true })
+    }
+
+    resetIdleTimer()
+
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+      for (const event of events) {
+        window.removeEventListener(event, handler)
+      }
+    }
+  }, [resetIdleTimer])
 
   useEffect(() => {
     setVaultRestoreLocked(false)
@@ -130,19 +180,13 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
 
     async function restoreFromVault() {
       try {
-        const cachedMasterKey = loadDecryptedMasterKeyForSubject(sessionSub)
-        if (!cancelled && cachedMasterKey) {
-          setMasterKeyHex(cachedMasterKey)
-          return
-        }
-
         const restoredMasterKey = await loadSealedMasterKeyForSubject(sessionSub)
         if (!cancelled && restoredMasterKey) {
           setMasterKeyHex(restoredMasterKey)
-          persistDecryptedMasterKeyForSubject(sessionSub, restoredMasterKey)
         }
       } catch {
-        // Ignore vault restoration failures and continue with memory-only key state.
+        // Vault restoration failed — remain in memory-only mode.
+        // User will need to reauthenticate to obtain the master key.
       }
     }
 
@@ -216,9 +260,7 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
           await sealMasterKeyForSubject(consumed.session.sub, consumed.masterKeyHex)
         } catch (vaultError) {
           console.error("Failed to persist popup handoff key in secure vault:", vaultError)
-          // Continue with in-memory key if vault persistence is unavailable.
         }
-        persistDecryptedMasterKeyForSubject(consumed.session.sub, consumed.masterKeyHex)
         startTransition(() => {
           setClientSession(consumed.session)
           setMasterKeyHex(consumed.masterKeyHex)
@@ -267,9 +309,7 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
         await sealMasterKeyForSubject(consumed.session.sub, consumed.masterKeyHex)
       } catch (vaultError) {
         console.error("Failed to persist redirect handoff key in secure vault:", vaultError)
-        // Continue with in-memory key if vault persistence is unavailable.
       }
-      persistDecryptedMasterKeyForSubject(consumed.session.sub, consumed.masterKeyHex)
       startTransition(() => {
         setClientSession(consumed.session)
         setMasterKeyHex(consumed.masterKeyHex)
@@ -288,16 +328,8 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const lockMasterKey = useCallback(() => {
-    setVaultRestoreLocked(true)
-    setMasterKeyHex(null)
-  }, [])
-
   const clearDeviceVault = useCallback(async () => {
     try {
-      if (clientSession?.sub) {
-        clearDecryptedMasterKeyForSubject(clientSession.sub)
-      }
       await clearMasterKeyVault()
       setVaultRestoreLocked(true)
       setMasterKeyHex(null)

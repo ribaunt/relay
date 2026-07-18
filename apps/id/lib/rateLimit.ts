@@ -214,7 +214,9 @@ const DEFAULT_CONFIGS: Record<string, { maxRequests: number; windowMs: number }>
   '/api/oidc/authorize:auth_code': { maxRequests: 30, windowMs: 15 * 60 * 1000 },
   '/api/oidc/token:auth_code': { maxRequests: 20, windowMs: 15 * 60 * 1000 },
   '/api/oidc/token:refresh': { maxRequests: 60, windowMs: 15 * 60 * 1000 },
-  '/api/auth/recovery': { maxRequests: 5, windowMs: 15 * 60 * 1000 }
+  '/api/auth/recovery': { maxRequests: 5, windowMs: 15 * 60 * 1000 },
+  '/api/relay/bootstrap': { maxRequests: 20, windowMs: 15 * 60 * 1000 },
+  '/api/relay/handoff/validate': { maxRequests: 30, windowMs: 15 * 60 * 1000 }
 };
 
 function makeKey(route: string, dimension: RateLimitDimension, identifier: string): string {
