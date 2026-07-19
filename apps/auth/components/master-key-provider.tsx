@@ -1,18 +1,19 @@
-"use client"
+"use client";
 
 import {
   createContext,
-  useCallback,
-  startTransition,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
+  startTransition,
+  useCallback,
   type ReactNode,
-} from "react"
-
-import type { PublicSession } from "@/lib/auth/types"
+} from "react";
+import { Relay } from "@relay/core";
+import type { RelaySession } from "@relay/core";
+import { AuthIdentityProvider } from "@/lib/auth/relay-identity-provider";
 import {
   HANDOFF_MESSAGE_TYPE,
   clearBridgeCookie,
@@ -24,353 +25,457 @@ import {
   waitForAuthenticatedSession,
   type MasterKeyHandoffPayload,
   type PendingMasterKeyHandoff,
-} from "@/lib/auth/master-key-handoff"
+} from "@/lib/auth/master-key-handoff";
 import {
   clearMasterKeyVault,
   loadSealedMasterKeyForSubject,
   sealMasterKeyForSubject,
-} from "@/lib/auth/master-key-vault"
+} from "@/lib/auth/master-key-vault";
 
-const HANDOFF_COMPLETE_MESSAGE_TYPE = "relay.masterkey_handoff_complete"
-const IDLE_LOCK_TIMEOUT_MS = 15 * 60 * 1000
+const HANDOFF_COMPLETE_MESSAGE_TYPE = "relay.masterkey_handoff_complete";
+const IDLE_LOCK_TIMEOUT_MS = 15 * 60 * 1000;
 
 type MasterKeyContextValue = {
-  clientSession: PublicSession | null
-  masterKeyHex: string | null
-  handoffStatus: "idle" | "pending" | "ready" | "error"
-  handoffError: string | null
-  markPending: () => void
-  consumeRedirectHandoff: () => Promise<boolean>
-  lockMasterKey: () => void
-  clearDeviceVault: () => Promise<boolean>
-  setClientSession: (session: PublicSession | null) => void
-  setMasterKeyHex: (masterKeyHex: string | null) => void
-}
+  relay: Relay | null;
+  handoffStatus: "idle" | "pending" | "ready" | "error";
+  handoffError: string | null;
+  markPending: () => void;
+  consumeRedirectHandoff: () => Promise<boolean>;
+  clearDeviceVault: () => Promise<boolean>;
+  clientSession: RelaySession | null;
+  setClientSession: (session: RelaySession | null) => void;
+  isUnlocked: boolean;
+  setVaultKekSalt: (kekSalt: string) => void;
+};
 
-const MasterKeyContext = createContext<MasterKeyContextValue | null>(null)
+const MasterKeyContext = createContext<MasterKeyContextValue | null>(null);
+
+function hexToBytes(hex: string): Uint8Array {
+  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2 !== 0) {
+    throw new Error("Invalid master key hex");
+  }
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
 
 async function consumePayload(
   state: PendingMasterKeyHandoff,
   payload: MasterKeyHandoffPayload,
-): Promise<{ masterKeyHex: string; session: PublicSession }> {
+): Promise<{ masterKeyHex: string; session: RelaySession; kekSalt: string }> {
   if (payload.version !== 1) {
-    throw new Error("Unsupported handoff payload version")
+    throw new Error("Unsupported handoff payload version");
   }
-
   if (payload.audience !== state.clientId) {
-    throw new Error("Handoff audience mismatch")
+    throw new Error("Handoff audience mismatch");
   }
-
-  if (!payload.issuer.startsWith("https://")) {
-    throw new Error("Invalid handoff issuer")
+  if (!payload.issuer.startsWith("https://") && !payload.issuer.startsWith("http://localhost")) {
+    throw new Error("Invalid handoff issuer");
   }
-
   if (payload.nonce !== state.nonce) {
-    throw new Error("Handoff nonce mismatch")
+    throw new Error("Handoff nonce mismatch");
   }
-
   if (payload.expiresAt <= payload.createdAt) {
-    throw new Error("Invalid handoff payload timing")
+    throw new Error("Invalid handoff payload timing");
   }
-
   if (payload.createdAt > Date.now() + 30_000) {
-    throw new Error("Handoff payload creation time is in the future")
+    throw new Error("Handoff payload creation time is in the future");
   }
-
   if (Date.now() > payload.expiresAt) {
-    throw new Error("Handoff payload expired")
+    throw new Error("Handoff payload expired");
   }
 
-  const session = await waitForAuthenticatedSession(payload.sub)
-  if (!session) {
-    throw new Error("Authenticated session not established before handoff timeout")
+  const appSession = await waitForAuthenticatedSession(payload.sub);
+  if (!appSession) {
+    throw new Error(
+      "Authenticated session not established before handoff timeout",
+    );
   }
 
-  const masterKeyHex = await unwrapMasterKeyFromPayload(payload, state)
-  return { masterKeyHex, session }
+  const masterKeyHex = await unwrapMasterKeyFromPayload(payload, state);
+
+  const session: RelaySession = {
+    sub: appSession.sub,
+    name: appSession.name,
+    picture: appSession.picture,
+    emailVerified: appSession.emailVerified,
+    expiresAt: 0,
+  };
+
+  return { masterKeyHex, session, kekSalt: appSession.bootstrap.kekSalt };
 }
 
 export function MasterKeyProvider({ children }: { children: ReactNode }) {
-  const [clientSession, setClientSession] = useState<PublicSession | null>(null)
-  const [masterKeyHex, setMasterKeyHex] = useState<string | null>(null)
-  const [handoffStatus, setHandoffStatus] = useState<"idle" | "pending" | "ready" | "error">("idle")
-  const [handoffError, setHandoffError] = useState<string | null>(null)
-  const [vaultRestoreLocked, setVaultRestoreLocked] = useState(false)
-  const pendingRef = useRef(false)
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const activityHandlerRef = useRef<(() => void) | null>(null)
-  const masterKeyRef = useRef<string | null>(null)
-
-  // Keep ref in sync for idle lock access
-  useEffect(() => {
-    masterKeyRef.current = masterKeyHex
-  }, [masterKeyHex])
-
-  const lockMasterKey = useCallback(() => {
-    setVaultRestoreLocked(true)
-    setMasterKeyHex(null)
-  }, [])
-
-  // ── Idle lock ──────────────────────────────────────────────────────────────
-  const resetIdleTimer = useCallback(() => {
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current)
-    }
-
-    if (!masterKeyRef.current) {
-      return
-    }
-
-    idleTimerRef.current = setTimeout(() => {
-      lockMasterKey()
-    }, IDLE_LOCK_TIMEOUT_MS)
-  }, [lockMasterKey])
+  const [relay, setRelay] = useState<Relay | null>(null);
+  const [handoffStatus, setHandoffStatus] = useState<
+    "idle" | "pending" | "ready" | "error"
+  >("idle");
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [vaultRestoreLocked, setVaultRestoreLocked] = useState(false);
+  const [clientSession, setClientSessionState] = useState<RelaySession | null>(null);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const identityProviderRef = useRef<AuthIdentityProvider | null>(null);
+  const pendingRef = useRef(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vaultKekSaltRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const handler = () => {
-      resetIdleTimer()
-    }
+    const provider = new AuthIdentityProvider();
+    identityProviderRef.current = provider;
 
-    activityHandlerRef.current = handler
+    const init = async () => {
+      const instance = await Relay.initialize({
+        identityProvider: provider,
+        maxRetries: 3,
+        retryBaseDelayMs: 1000,
+      });
+      setRelay(instance);
+    };
 
-    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "wheel"]
-    for (const event of events) {
-      window.addEventListener(event, handler, { passive: true })
-    }
+    void init();
+  }, []);
 
-    resetIdleTimer()
+  useEffect(() => {
+    if (!relay) return;
+
+    setClientSessionState(relay.session);
+    setIsUnlocked(relay.isUnlocked);
+
+    const unsubSession = relay.on<RelaySession | null>("session:changed", (session) => {
+      setClientSessionState(session ?? null);
+    });
+    const unsubLock = relay.on("lock", () => setIsUnlocked(false));
+    const unsubUnlock = relay.on("unlock", () => setIsUnlocked(true));
 
     return () => {
-      if (idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current)
-      }
-      for (const event of events) {
-        window.removeEventListener(event, handler)
-      }
+      unsubSession();
+      unsubLock();
+      unsubUnlock();
+    };
+  }, [relay]);
+
+  const lockRelay = useCallback(() => {
+    if (!relay) return;
+    setVaultRestoreLocked(true);
+    relay.lock();
+  }, [relay]);
+
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
     }
-  }, [resetIdleTimer])
+    if (!isUnlocked) return;
+    idleTimerRef.current = setTimeout(() => {
+      lockRelay();
+    }, IDLE_LOCK_TIMEOUT_MS);
+  }, [isUnlocked, lockRelay]);
 
   useEffect(() => {
-    setVaultRestoreLocked(false)
-  }, [clientSession])
+    const handler = () => resetIdleTimer();
+    const events = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "scroll",
+      "wheel",
+    ];
+    for (const event of events) {
+      window.addEventListener(event, handler, { passive: true });
+    }
+    resetIdleTimer();
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      for (const event of events) {
+        window.removeEventListener(event, handler);
+      }
+    };
+  }, [resetIdleTimer]);
+
+  useEffect(() => {
+    setVaultRestoreLocked(false);
+  }, [clientSession]);
 
   useEffect(() => {
     function resetOnTimeout() {
-      const state = loadPendingMasterKeyHandoff()
-      if (!state) {
-        return
-      }
-
+      const state = loadPendingMasterKeyHandoff();
+      if (!state) return;
       if (Date.now() - state.createdAt > 60_000) {
-        clearPendingMasterKeyHandoff()
-        setHandoffStatus("idle")
+        clearPendingMasterKeyHandoff();
+        setHandoffStatus("idle");
       }
     }
-
-    resetOnTimeout()
-  }, [])
+    resetOnTimeout();
+  }, []);
 
   useEffect(() => {
-    if (!clientSession || masterKeyHex || vaultRestoreLocked) {
-      return
-    }
-
-    const sessionSub = clientSession.sub
-    let cancelled = false
+    if (!clientSession || isUnlocked || vaultRestoreLocked) return;
+    const sessionSub = clientSession.sub;
+    const kekSalt = vaultKekSaltRef.current;
+    if (!kekSalt) return;
+    let cancelled = false;
 
     async function restoreFromVault() {
       try {
-        const restoredMasterKey = await loadSealedMasterKeyForSubject(sessionSub)
-        if (!cancelled && restoredMasterKey) {
-          setMasterKeyHex(restoredMasterKey)
+        const restored = await loadSealedMasterKeyForSubject(sessionSub, kekSalt!);
+        if (!cancelled && restored && relay) {
+          await relay.unlock(hexToBytes(restored));
+        } else if (!cancelled && !restored) {
+          console.info("Vault: no sealed master key found for subject", sessionSub);
         }
-      } catch {
-        // Vault restoration failed — remain in memory-only mode.
-        // User will need to reauthenticate to obtain the master key.
+      } catch (error) {
+        console.warn("Vault: restoration failed — remaining in memory-only mode.", error);
       }
     }
 
-    void restoreFromVault()
-
+    void restoreFromVault();
     return () => {
-      cancelled = true
-    }
-  }, [clientSession, masterKeyHex, vaultRestoreLocked])
+      cancelled = true;
+    };
+  }, [clientSession, relay, vaultRestoreLocked, isUnlocked]);
 
   useEffect(() => {
-    if (masterKeyHex && handoffStatus === "error") {
-      setHandoffStatus("ready")
-      setHandoffError(null)
+    if (isUnlocked && handoffStatus === "error") {
+      setHandoffStatus("ready");
+      setHandoffError(null);
     }
-  }, [masterKeyHex, handoffStatus])
+  }, [isUnlocked, handoffStatus]);
 
   useEffect(() => {
     async function onMessage(event: MessageEvent) {
-      if (event.origin !== window.location.origin) {
-        return
-      }
+      if (event.origin !== window.location.origin) return;
 
-      const state = loadPendingMasterKeyHandoff()
-      if (!state || state.mode !== "popup" || pendingRef.current) {
-        return
-      }
+      const state = loadPendingMasterKeyHandoff();
+      if (!state || state.mode !== "popup" || pendingRef.current) return;
 
       const payload = event.data as {
-        type?: string
-        payload?: MasterKeyHandoffPayload
-        hasPayload?: boolean
-      }
+        type?: string;
+        payload?: MasterKeyHandoffPayload;
+        hasPayload?: boolean;
+      };
 
-      if (payload?.type === HANDOFF_COMPLETE_MESSAGE_TYPE && !payload.hasPayload) {
-        pendingRef.current = true
-        setHandoffStatus("pending")
-        setHandoffError(null)
+      if (
+        payload?.type === HANDOFF_COMPLETE_MESSAGE_TYPE &&
+        !payload.hasPayload
+      ) {
+        pendingRef.current = true;
+        setHandoffStatus("pending");
+        setHandoffError(null);
 
         try {
-          const session = await waitForAuthenticatedSession()
-          if (!session) {
-            throw new Error("Popup completed but authenticated session is not available")
+          const appSession = await waitForAuthenticatedSession();
+          if (!appSession) {
+            throw new Error(
+              "Popup completed but authenticated session is not available",
+            );
           }
 
+          const session: RelaySession = {
+            sub: appSession.sub,
+            name: appSession.name,
+            picture: appSession.picture,
+            emailVerified: appSession.emailVerified,
+            expiresAt: 0,
+          };
+
+          vaultKekSaltRef.current = appSession.bootstrap.kekSalt;
+          identityProviderRef.current?.notifySessionChange(session);
           startTransition(() => {
-            setClientSession(session)
-            setHandoffStatus("ready")
-          })
-          clearPendingMasterKeyHandoff()
+            setHandoffStatus("ready");
+          });
+          clearPendingMasterKeyHandoff();
         } catch (error) {
-          setHandoffStatus("error")
-          setHandoffError(error instanceof Error ? error.message : "Failed to finalize popup completion")
+          setHandoffStatus("error");
+          setHandoffError(
+            error instanceof Error
+              ? error.message
+              : "Failed to finalize popup completion",
+          );
         } finally {
-          pendingRef.current = false
+          pendingRef.current = false;
         }
-        return
+        return;
       }
 
-      if (payload?.type !== HANDOFF_MESSAGE_TYPE || !payload.payload) {
-        return
-      }
+      if (payload?.type !== HANDOFF_MESSAGE_TYPE || !payload.payload) return;
 
-      pendingRef.current = true
-      setHandoffStatus("pending")
-      setHandoffError(null)
+      pendingRef.current = true;
+      setHandoffStatus("pending");
+      setHandoffError(null);
 
       try {
-        const consumed = await consumePayload(state, payload.payload)
+        const consumed = await consumePayload(state, payload.payload);
+        vaultKekSaltRef.current = consumed.kekSalt;
         try {
-          await sealMasterKeyForSubject(consumed.session.sub, consumed.masterKeyHex)
+          await sealMasterKeyForSubject(
+            consumed.session.sub,
+            consumed.masterKeyHex,
+            consumed.kekSalt,
+          );
         } catch (vaultError) {
-          console.error("Failed to persist popup handoff key in secure vault:", vaultError)
+          console.error(
+            "Failed to persist popup handoff key in secure vault:",
+            vaultError,
+          );
         }
+
+        identityProviderRef.current?.notifySessionChange(consumed.session);
+
+        if (relay) {
+          await relay.unlock(hexToBytes(consumed.masterKeyHex));
+        }
+
         startTransition(() => {
-          setClientSession(consumed.session)
-          setMasterKeyHex(consumed.masterKeyHex)
-          setVaultRestoreLocked(false)
-          setHandoffStatus("ready")
-        })
-        clearPendingMasterKeyHandoff()
+          setVaultRestoreLocked(false);
+          setHandoffStatus("ready");
+        });
+        clearPendingMasterKeyHandoff();
       } catch (error) {
-        setHandoffStatus("error")
-        setHandoffError(error instanceof Error ? error.message : "Failed to process popup handoff")
+        setHandoffStatus("error");
+        setHandoffError(
+          error instanceof Error
+            ? error.message
+            : "Failed to process popup handoff",
+        );
       } finally {
-        pendingRef.current = false
+        pendingRef.current = false;
       }
     }
 
-    window.addEventListener("message", onMessage)
-    return () => window.removeEventListener("message", onMessage)
-  }, [])
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [relay]);
 
   const markPending = useCallback(() => {
-    setHandoffStatus("pending")
-    setHandoffError(null)
-  }, [])
+    setHandoffStatus("pending");
+    setHandoffError(null);
+  }, []);
 
   const consumeRedirectHandoff = useCallback(async () => {
-    const state = loadPendingMasterKeyHandoff()
-    if (!state || state.mode !== "redirect") {
-      return false
-    }
+    const state = loadPendingMasterKeyHandoff();
+    if (!state || state.mode !== "redirect") return false;
 
-    const cookieValue = readBridgeCookie(state.cookieName)
+    const cookieValue = readBridgeCookie(state.cookieName);
     if (!cookieValue) {
-      setHandoffStatus("error")
-      setHandoffError("Encrypted bridge payload was not found")
-      return false
+      setHandoffStatus("error");
+      setHandoffError("Encrypted bridge payload was not found");
+      return false;
     }
 
-    pendingRef.current = true
-    setHandoffStatus("pending")
-    setHandoffError(null)
+    pendingRef.current = true;
+    setHandoffStatus("pending");
+    setHandoffError(null);
 
     try {
-      const payload = decodePayloadFromCookie(cookieValue)
-      const consumed = await consumePayload(state, payload)
+      const payload = decodePayloadFromCookie(cookieValue);
+      const consumed = await consumePayload(state, payload);
+      vaultKekSaltRef.current = consumed.kekSalt;
       try {
-        await sealMasterKeyForSubject(consumed.session.sub, consumed.masterKeyHex)
+        await sealMasterKeyForSubject(
+          consumed.session.sub,
+          consumed.masterKeyHex,
+          consumed.kekSalt,
+        );
       } catch (vaultError) {
-        console.error("Failed to persist redirect handoff key in secure vault:", vaultError)
+        console.error(
+          "Failed to persist redirect handoff key in secure vault:",
+          vaultError,
+        );
       }
+
+      identityProviderRef.current?.notifySessionChange(consumed.session);
+
+      if (relay) {
+        await relay.unlock(hexToBytes(consumed.masterKeyHex));
+      }
+
       startTransition(() => {
-        setClientSession(consumed.session)
-        setMasterKeyHex(consumed.masterKeyHex)
-        setVaultRestoreLocked(false)
-        setHandoffStatus("ready")
-      })
-      clearBridgeCookie(state.cookieName)
-      clearPendingMasterKeyHandoff()
-      return true
+        setVaultRestoreLocked(false);
+        setHandoffStatus("ready");
+      });
+      clearBridgeCookie(state.cookieName);
+      clearPendingMasterKeyHandoff();
+      return true;
     } catch (error) {
-      setHandoffStatus("error")
-      setHandoffError(error instanceof Error ? error.message : "Failed to process redirect handoff")
-      return false
+      setHandoffStatus("error");
+      setHandoffError(
+        error instanceof Error
+          ? error.message
+          : "Failed to process redirect handoff",
+      );
+      return false;
     } finally {
-      pendingRef.current = false
+      pendingRef.current = false;
     }
-  }, [])
+  }, [relay]);
 
   const clearDeviceVault = useCallback(async () => {
     try {
-      await clearMasterKeyVault()
-      setVaultRestoreLocked(true)
-      setMasterKeyHex(null)
-      return true
+      await clearMasterKeyVault();
+      setVaultRestoreLocked(true);
+      if (relay) {
+        relay.lock();
+      }
+      return true;
     } catch {
-      return false
+      return false;
     }
-  }, [])
+  }, [relay]);
+
+  const setClientSession = useCallback(
+    (session: RelaySession | null) => {
+      identityProviderRef.current?.notifySessionChange(session);
+    },
+    [],
+  );
+
+  const setVaultKekSalt = useCallback(
+    (kekSalt: string) => {
+      vaultKekSaltRef.current = kekSalt;
+    },
+    [],
+  );
 
   const value = useMemo<MasterKeyContextValue>(
     () => ({
-      clientSession,
-      masterKeyHex,
+      relay,
       handoffStatus,
       handoffError,
       markPending,
       consumeRedirectHandoff,
-      lockMasterKey,
       clearDeviceVault,
+      clientSession,
       setClientSession,
-      setMasterKeyHex,
+      isUnlocked,
+      setVaultKekSalt,
     }),
     [
+      relay,
+      handoffStatus,
+      handoffError,
+      markPending,
+      consumeRedirectHandoff,
       clearDeviceVault,
       clientSession,
-      consumeRedirectHandoff,
-      handoffError,
-      handoffStatus,
-      lockMasterKey,
-      markPending,
-      masterKeyHex,
+      setClientSession,
+      isUnlocked,
+      setVaultKekSalt,
     ],
-  )
+  );
 
-  return <MasterKeyContext.Provider value={value}>{children}</MasterKeyContext.Provider>
+  return (
+    <MasterKeyContext.Provider value={value}>
+      {children}
+    </MasterKeyContext.Provider>
+  );
 }
 
 export function useMasterKey() {
-  const context = useContext(MasterKeyContext)
+  const context = useContext(MasterKeyContext);
   if (!context) {
-    throw new Error("useMasterKey must be used within MasterKeyProvider")
+    throw new Error("useMasterKey must be used within MasterKeyProvider");
   }
-  return context
+  return context;
 }

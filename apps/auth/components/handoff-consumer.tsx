@@ -8,10 +8,12 @@ import { clearPendingMasterKeyHandoff } from "@/lib/auth/master-key-handoff"
 
 export default function HandoffConsumer({ returnTo }: { returnTo: string }) {
   const router = useRouter()
-  const { masterKeyHex, consumeRedirectHandoff, handoffError } = useMasterKey()
+  const { relay, consumeRedirectHandoff, handoffError, isUnlocked } = useMasterKey()
 
   useEffect(() => {
-    if (masterKeyHex) {
+    if (!relay) return
+
+    if (isUnlocked) {
       clearPendingMasterKeyHandoff()
       router.replace(returnTo)
       return
@@ -31,7 +33,7 @@ export default function HandoffConsumer({ returnTo }: { returnTo: string }) {
     return () => {
       cancelled = true
     }
-  }, [consumeRedirectHandoff, masterKeyHex, returnTo, router])
+  }, [consumeRedirectHandoff, relay, isUnlocked, returnTo, router])
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6 text-white">
@@ -45,4 +47,3 @@ export default function HandoffConsumer({ returnTo }: { returnTo: string }) {
     </main>
   )
 }
-

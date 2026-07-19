@@ -29,6 +29,9 @@ importers:
       '@hugeicons/react':
         specifier: ^1.1.6
         version: 1.1.9(react@19.2.7)
+      '@relay/core':
+        specifier: workspace:*
+        version: link:../../packages/@relay/core
       '@relay/crypto':
         specifier: workspace:*
         version: link:../../packages/@relay/crypto
@@ -205,6 +208,25 @@ importers:
       babel-plugin-react-compiler:
         specifier: 1.0.0
         version: 1.0.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/@relay/core:
+    dependencies:
+      '@relay/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@relay/services':
+        specifier: workspace:*
+        version: link:../services
+      '@relay/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.0
+        version: 22.20.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

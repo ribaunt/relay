@@ -11,6 +11,7 @@ import { checkRateLimit } from '@/lib/rateLimit';
 import { signAccessToken, signIDToken } from '@/lib/oidc-tokens';
 import { getEnv } from '@/lib/env';
 import { createMasterKeyHandoff, HANDOFF_SCOPE } from '@/lib/master-key-handoff';
+import { fromBase64Url } from '@relay/crypto';
 
 type HandoffMode = 'popup' | 'redirect';
 
@@ -368,12 +369,7 @@ export async function POST(request: NextRequest) {
           });
 
           if (encryptedKeyResult) {
-            // The encrypted_master_key field is base64-encoded, convert to bytes
-            const masterKeyBytes = new Uint8Array(
-              atob(encryptedKeyResult.encrypted_master_key)
-                .split('')
-                .map((c) => c.charCodeAt(0))
-            );
+            const masterKeyBytes = fromBase64Url(encryptedKeyResult.encrypted_master_key);
 
             const handoffPayload = await createMasterKeyHandoff({
               issuer: env.SITE_URL,

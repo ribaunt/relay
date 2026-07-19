@@ -32,6 +32,7 @@ function addSecureLogoutScript(html: string): string {
       const dbs = await indexedDB.databases();
       await Promise.all(dbs.map(db => indexedDB.deleteDatabase(db.name)));
     }
+    try { localStorage.removeItem("relay-vault-device-id"); } catch(e) {}
   } catch(e) { console.warn('Logout cleanup:', e); }
 })();
 </script>`

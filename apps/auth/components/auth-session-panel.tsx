@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { useMasterKey } from "@/components/master-key-provider"
 import { decryptMasterKeyWithPassword } from "@/lib/auth/browser-crypto"
@@ -13,64 +13,87 @@ type AuthSessionPanelProps = {
   loggedOut?: string
 }
 
+function hexToBytes(hex: string): Uint8Array {
+  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2 !== 0) {
+    throw new Error("Invalid master key hex")
+  }
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16)
+  }
+  return bytes
+}
+
 export default function AuthSessionPanel({ session, authError, loggedOut }: AuthSessionPanelProps) {
   const {
-    masterKeyHex,
+    relay,
     handoffError,
     handoffStatus,
+    clearDeviceVault,
     clientSession,
     setClientSession,
-    setMasterKeyHex,
-    lockMasterKey,
-    clearDeviceVault,
+    isUnlocked,
+    setVaultKekSalt,
   } = useMasterKey()
+  const vaultClearTriggered = useRef(false)
   const [password, setPassword] = useState("")
   const [decryptResult, setDecryptResult] = useState<string | null>(null)
   const [decryptError, setDecryptError] = useState<string | null>(null)
   const [decrypting, setDecrypting] = useState(false)
   const [vaultMessage, setVaultMessage] = useState<string | null>(null)
   const [vaultBusy, setVaultBusy] = useState(false)
+
+  useEffect(() => {
+    if (loggedOut === "global" && !vaultClearTriggered.current) {
+      vaultClearTriggered.current = true
+      clearDeviceVault()
+    }
+  }, [loggedOut, clearDeviceVault])
+
   const resolvedSession = session ?? clientSession
 
   useEffect(() => {
     if (session) {
-      setClientSession(session)
+      setVaultKekSalt(session.bootstrap.kekSalt)
+      setClientSession({
+        sub: session.sub,
+        name: session.name,
+        picture: session.picture,
+        emailVerified: session.emailVerified,
+        expiresAt: 0,
+      })
     }
-  }, [session, setClientSession])
+  }, [session, setClientSession, setVaultKekSalt])
 
   const bootstrapSummary = useMemo(() => {
-    if (!resolvedSession) {
-      return null
-    }
-
+    if (!session) return null
     return {
-      sub: resolvedSession.bootstrap.sub,
-      hasPendingEmailChange: resolvedSession.bootstrap.hasPendingEmailChange,
-      encryptedMasterKey: resolvedSession.bootstrap.encryptedMasterKey,
-      iv: resolvedSession.bootstrap.iv,
-      kekSalt: resolvedSession.bootstrap.kekSalt,
-      kdfMemLimit: resolvedSession.bootstrap.kdfMemLimit,
-      kdfOpsLimit: resolvedSession.bootstrap.kdfOpsLimit,
-      emailEncrypted: resolvedSession.bootstrap.emailEncrypted,
-      emailIv: resolvedSession.bootstrap.emailIv,
+      sub: session.bootstrap.sub,
+      hasPendingEmailChange: session.bootstrap.hasPendingEmailChange,
+      encryptedMasterKey: session.bootstrap.encryptedMasterKey,
+      iv: session.bootstrap.iv,
+      kekSalt: session.bootstrap.kekSalt,
+      kdfMemLimit: session.bootstrap.kdfMemLimit,
+      kdfOpsLimit: session.bootstrap.kdfOpsLimit,
+      emailEncrypted: session.bootstrap.emailEncrypted,
+      emailIv: session.bootstrap.emailIv,
     }
-  }, [resolvedSession])
+  }, [session])
 
   async function handleDecryptClick() {
-    if (!resolvedSession) {
-      return
-    }
-
+    if (!session) return
     setDecrypting(true)
     setDecryptError(null)
     setDecryptResult(null)
 
     try {
-      const result = await decryptMasterKeyWithPassword(resolvedSession.bootstrap, password)
+      const result = await decryptMasterKeyWithPassword(session.bootstrap, password)
       setDecryptResult(result)
-      setMasterKeyHex(result)
+      if (relay) {
+        await relay.unlock(hexToBytes(result))
+      }
       try {
-        await sealMasterKeyForSubject(resolvedSession.sub, result)
+        await sealMasterKeyForSubject(session.sub, result, session.bootstrap.kekSalt)
         setVaultMessage("Master key decrypted and stored in secure device vault.")
       } catch {
         setVaultMessage("Master key decrypted in memory only — vault storage unavailable.")
@@ -92,7 +115,9 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
   }
 
   function handleLockClick() {
-    lockMasterKey()
+    if (relay) {
+      relay.lock()
+    }
     setVaultMessage("Master key locked in memory.")
   }
 
@@ -131,8 +156,10 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
             <p className="text-sm">handoffStatus: {handoffStatus}</p>
             {handoffError ? <p className="text-sm text-destructive">handoffError: {handoffError}</p> : null}
             <p className="mt-2 text-sm font-medium">decryptedMasterKey:</p>
-            {masterKeyHex ? (
-              <p className="mt-1 break-all rounded bg-muted p-2 text-xs">{masterKeyHex}</p>
+            {isUnlocked ? (
+              <p className="mt-1 break-all rounded bg-muted p-2 text-xs">
+                Unlocked in memory via Relay Core
+              </p>
             ) : (
               <p className="mt-1 text-xs text-muted-foreground">
                 Not available in memory yet. It will appear automatically after handoff or vault restore.
@@ -175,7 +202,7 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
                   type="button"
                   className="rounded border px-3 py-2 text-sm"
                   onClick={handleLockClick}
-                  disabled={!masterKeyHex || vaultBusy}
+                  disabled={!isUnlocked || vaultBusy}
                 >
                   Lock key
                 </button>

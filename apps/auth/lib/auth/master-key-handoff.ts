@@ -1,3 +1,8 @@
+/**
+ * @deprecated Import from @relay/core instead. This re-export barrel exists
+ * for backward compatibility with the auth app's handoff protocol.
+ * New code should use the Relay class via useMasterKey().
+ */
 export {
   HANDOFF_MESSAGE_TYPE,
   HANDOFF_QUERY_KEYS,

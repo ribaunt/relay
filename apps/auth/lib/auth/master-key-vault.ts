@@ -1,7 +1,7 @@
 const VAULT_DB_NAME = "relay-secure-vault"
-const VAULT_DB_VERSION = 4
+const VAULT_DB_VERSION = 5
 const VAULT_STORE = "vault"
-const WRAPPING_KEY_ID = "wrapping-key"
+const DEVICE_ID_KEY = "relay-vault-device-id"
 
 type SealedMasterKeyRecord = {
   type: "sealed-master-key"
@@ -92,37 +92,44 @@ async function deleteFromVault(db: IDBDatabase, key: IDBValidKey): Promise<void>
   })
 }
 
-async function getOrCreateWrappingKey(db: IDBDatabase): Promise<CryptoKey> {
-  const existing = await readFromVault<CryptoKey>(db, WRAPPING_KEY_ID)
-  if (existing instanceof CryptoKey) {
-    return existing
+async function deriveWrappingKey(kekSalt: string): Promise<CryptoKey> {
+  let deviceId = localStorage.getItem(DEVICE_ID_KEY)
+  if (!deviceId) {
+    deviceId = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
+    localStorage.setItem(DEVICE_ID_KEY, deviceId)
   }
 
-  const key = await crypto.subtle.generateKey(
+  const salt = new TextEncoder().encode(`relay-vault-salt:${kekSalt}:${deviceId}`)
+  const ikm = new TextEncoder().encode("relay-vault-key-v1")
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    ikm,
+    { name: "HKDF" },
+    false,
+    ["deriveKey"],
+  )
+
+  return crypto.subtle.deriveKey(
     {
-      name: "AES-GCM",
-      length: 256,
+      name: "HKDF",
+      salt,
+      info: new TextEncoder().encode("relay-master-key-wrap"),
     },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
     false,
     ["encrypt", "decrypt"],
   )
-
-  await writeToVault(db, WRAPPING_KEY_ID, key)
-  return key
 }
 
-async function getWrappingKey(db: IDBDatabase): Promise<CryptoKey | null> {
-  const existing = await readFromVault<CryptoKey>(db, WRAPPING_KEY_ID)
-  return existing instanceof CryptoKey ? existing : null
-}
-
-export async function sealMasterKeyForSubject(sub: string, masterKeyHex: string): Promise<void> {
+export async function sealMasterKeyForSubject(sub: string, masterKeyHex: string, kekSalt: string): Promise<void> {
   const plaintext = hexToBytes(masterKeyHex)
   const iv = crypto.getRandomValues(new Uint8Array(12))
 
   const db = await openVaultDb()
   try {
-    const wrappingKey = await getOrCreateWrappingKey(db)
+    const wrappingKey = await deriveWrappingKey(kekSalt)
     const ciphertext = await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
@@ -146,19 +153,15 @@ export async function sealMasterKeyForSubject(sub: string, masterKeyHex: string)
   }
 }
 
-export async function loadSealedMasterKeyForSubject(sub: string): Promise<string | null> {
+export async function loadSealedMasterKeyForSubject(sub: string, kekSalt: string): Promise<string | null> {
   const db = await openVaultDb()
   try {
-    const wrappingKey = await getWrappingKey(db)
-    if (!wrappingKey) {
-      return null
-    }
-
     const record = await readFromVault<SealedMasterKeyRecord>(db, getSealedKeyId(sub))
     if (!record || record.type !== "sealed-master-key" || record.sub !== sub) {
       return null
     }
 
+    const wrappingKey = await deriveWrappingKey(kekSalt)
     const plaintext = await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
@@ -169,6 +172,8 @@ export async function loadSealedMasterKeyForSubject(sub: string): Promise<string
     )
 
     return bytesToHex(new Uint8Array(plaintext))
+  } catch {
+    return null
   } finally {
     db.close()
   }
@@ -184,6 +189,12 @@ export async function deleteSealedMasterKeyForSubject(sub: string): Promise<void
 }
 
 export async function clearMasterKeyVault(): Promise<void> {
+  try {
+    localStorage.removeItem(DEVICE_ID_KEY)
+  } catch {
+    // localStorage may be unavailable
+  }
+
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(VAULT_DB_NAME)
     request.onsuccess = () => resolve()

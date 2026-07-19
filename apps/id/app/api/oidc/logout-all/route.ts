@@ -11,7 +11,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 function isAllowedRelayHost(hostname: string): boolean {
-  return hostname === 'relay.re' || hostname.endsWith('.relay.re');
+  return hostname === 'relay.re' || hostname.endsWith('.relay.re') || hostname === 'localhost' || hostname === '127.0.0.1';
 }
 
 function readReturnTo(request: NextRequest, formReturnTo?: string | null): string | null {
