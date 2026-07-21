@@ -24,8 +24,12 @@ export type {
   KeyContext,
   IdentityProvider,
   LoginOptions,
+  LoginCredentials,
   LogoutOptions,
+  KeyMaterial,
+  DeviceInfo,
   StorageProvider,
   SearchProvider,
+  DeviceAPI,
 } from "@relay/core"
 

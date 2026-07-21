@@ -12,7 +12,8 @@ import {
   type ReactNode,
 } from "react";
 import { Relay } from "@relay/core";
-import type { RelaySession } from "@relay/core";
+import type { RelaySession, KeyMaterial } from "@relay/core";
+import type { BootstrapPayload } from "@relay/types";
 import { AuthIdentityProvider } from "@/lib/auth/relay-identity-provider";
 import {
   HANDOFF_MESSAGE_TYPE,
@@ -34,6 +35,58 @@ import {
 
 const HANDOFF_COMPLETE_MESSAGE_TYPE = "relay.masterkey_handoff_complete";
 const IDLE_LOCK_TIMEOUT_MS = 15 * 60 * 1000;
+const LOCAL_MK_KEY = "relay:mk";
+
+async function wrapMasterKeyForLocalStorage(masterKeyHex: string, kekSalt: string): Promise<string | null> {
+  try {
+    const deviceId = localStorage.getItem("relay-vault-device-id") || "default";
+    const salt = new TextEncoder().encode(`relay-local-mk:${kekSalt}:${deviceId}`);
+    const ikm = new TextEncoder().encode("relay-mk-fallback-v1");
+    const keyMaterial = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt, info: new TextEncoder().encode("relay-mk-wrap") },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      aesKey,
+      new TextEncoder().encode(masterKeyHex)
+    );
+    const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(ciphertext), iv.length);
+    return btoa(String.fromCharCode(...combined));
+  } catch {
+    return null;
+  }
+}
+
+async function unwrapMasterKeyFromLocalStorage(wrapped: string, kekSalt: string): Promise<string | null> {
+  try {
+    const deviceId = localStorage.getItem("relay-vault-device-id") || "default";
+    const combined = Uint8Array.from(atob(wrapped), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const salt = new TextEncoder().encode(`relay-local-mk:${kekSalt}:${deviceId}`);
+    const ikm = new TextEncoder().encode("relay-mk-fallback-v1");
+    const keyMaterial = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt, info: new TextEncoder().encode("relay-mk-wrap") },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"]
+    );
+    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ciphertext);
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    return null;
+  }
+}
 
 type MasterKeyContextValue = {
   relay: Relay | null;
@@ -64,7 +117,7 @@ function hexToBytes(hex: string): Uint8Array {
 async function consumePayload(
   state: PendingMasterKeyHandoff,
   payload: MasterKeyHandoffPayload,
-): Promise<{ masterKeyHex: string; session: RelaySession; kekSalt: string }> {
+): Promise<{ masterKeyHex: string; session: RelaySession; kekSalt: string; bootstrap: BootstrapPayload }> {
   if (payload.version !== 1) {
     throw new Error("Unsupported handoff payload version");
   }
@@ -104,7 +157,8 @@ async function consumePayload(
     expiresAt: 0,
   };
 
-  return { masterKeyHex, session, kekSalt: appSession.bootstrap.kekSalt };
+  const bootstrap = appSession.bootstrap;
+  return { masterKeyHex, session, kekSalt: bootstrap.kekSalt, bootstrap };
 }
 
 export function MasterKeyProvider({ children }: { children: ReactNode }) {
@@ -213,20 +267,51 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!clientSession || isUnlocked || vaultRestoreLocked) return;
     const sessionSub = clientSession.sub;
-    const kekSalt = vaultKekSaltRef.current;
-    if (!kekSalt) return;
     let cancelled = false;
 
     async function restoreFromVault() {
+      let kekSalt = vaultKekSaltRef.current;
+      if (!kekSalt && identityProviderRef.current) {
+        try {
+          const km = await identityProviderRef.current.getKeyMaterial();
+          if (km && km.kekSalt) {
+            kekSalt = km.kekSalt;
+            vaultKekSaltRef.current = kekSalt;
+          }
+        } catch {
+          // failed to get key material
+        }
+      }
+      if (!kekSalt || cancelled) return;
+
       try {
-        const restored = await loadSealedMasterKeyForSubject(sessionSub, kekSalt!);
+        const restored = await loadSealedMasterKeyForSubject(sessionSub, kekSalt);
         if (!cancelled && restored && relay) {
           await relay.unlock(hexToBytes(restored));
-        } else if (!cancelled && !restored) {
-          console.info("Vault: no sealed master key found for subject", sessionSub);
+          return;
         }
       } catch (error) {
-        console.warn("Vault: restoration failed — remaining in memory-only mode.", error);
+        console.warn("Vault: restoration failed — trying localStorage fallback.", error);
+      }
+
+      if (!cancelled && relay) {
+        try {
+          const wrapped = localStorage.getItem("relay:mk");
+          if (wrapped) {
+            const hexKey = await unwrapMasterKeyFromLocalStorage(wrapped, kekSalt);
+            if (hexKey) {
+              console.info("Vault: restored master key from localStorage fallback");
+              await relay.unlock(hexToBytes(hexKey));
+              return;
+            }
+          }
+        } catch (fallbackError) {
+          console.warn("Vault: localStorage fallback also failed.", fallbackError);
+        }
+      }
+
+      if (!cancelled) {
+        console.info("Vault: no sealed master key found for subject", sessionSub);
       }
     }
 
@@ -321,7 +406,26 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
           );
         }
 
+        try {
+          const wrapped = await wrapMasterKeyForLocalStorage(consumed.masterKeyHex, consumed.kekSalt);
+          if (wrapped) {
+            localStorage.setItem("relay:mk", wrapped);
+          }
+        } catch {
+          // localStorage fallback failed — non-critical
+        }
+
         identityProviderRef.current?.notifySessionChange(consumed.session);
+
+        if (consumed.bootstrap && identityProviderRef.current) {
+          await identityProviderRef.current.saveKeyMaterial({
+            encryptedMasterKey: consumed.bootstrap.encryptedMasterKey,
+            iv: consumed.bootstrap.iv,
+            kekSalt: consumed.bootstrap.kekSalt,
+            kdfMemLimit: consumed.bootstrap.kdfMemLimit,
+            kdfOpsLimit: consumed.bootstrap.kdfOpsLimit,
+          });
+        }
 
         if (relay) {
           await relay.unlock(hexToBytes(consumed.masterKeyHex));
@@ -385,7 +489,26 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
         );
       }
 
+      try {
+        const wrapped = await wrapMasterKeyForLocalStorage(consumed.masterKeyHex, consumed.kekSalt);
+        if (wrapped) {
+          localStorage.setItem("relay:mk", wrapped);
+        }
+      } catch {
+        // localStorage fallback failed — non-critical
+      }
+
       identityProviderRef.current?.notifySessionChange(consumed.session);
+
+      if (consumed.bootstrap && identityProviderRef.current) {
+        await identityProviderRef.current.saveKeyMaterial({
+          encryptedMasterKey: consumed.bootstrap.encryptedMasterKey,
+          iv: consumed.bootstrap.iv,
+          kekSalt: consumed.bootstrap.kekSalt,
+          kdfMemLimit: consumed.bootstrap.kdfMemLimit,
+          kdfOpsLimit: consumed.bootstrap.kdfOpsLimit,
+        });
+      }
 
       if (relay) {
         await relay.unlock(hexToBytes(consumed.masterKeyHex));
@@ -414,6 +537,7 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
   const clearDeviceVault = useCallback(async () => {
     try {
       await clearMasterKeyVault();
+      localStorage.removeItem("relay:mk");
       setVaultRestoreLocked(true);
       if (relay) {
         relay.lock();

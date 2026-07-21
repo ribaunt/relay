@@ -16,6 +16,7 @@
     "@hugeicons/react": "^1.1.6",
     "@relay/core": "workspace:*",
     "@relay/crypto": "workspace:*",
+    "@relay/id-client": "workspace:*",
     "@relay/env": "workspace:*",
     "@relay/services": "workspace:*",
     "@relay/types": "workspace:*",

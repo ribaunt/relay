@@ -1,9 +1,11 @@
 import type {
   IdentityProvider,
-  LoginOptions,
+  LoginCredentials,
   LogoutOptions,
-  RelayDevice,
   RelaySession,
+  DeviceInfo,
+  LoginResult,
+  KeyMaterial,
 } from "./types";
 import type { SessionManager } from "./session";
 
@@ -15,12 +17,25 @@ export class IdentityAPI {
     this.sessionManager.bindIdentity((handler) => {
       return this.provider.onSessionChange(handler);
     });
+
+    this.restoreSession();
   }
 
-  async login(options?: LoginOptions): Promise<RelaySession> {
-    const session = await this.provider.login(options);
-    this.sessionManager.setSession(session);
-    return session;
+  private async restoreSession(): Promise<void> {
+    try {
+      const session = await this.provider.getSession();
+      if (session) {
+        this.sessionManager.setSession(session);
+      }
+    } catch {
+      // Session restoration failed — not critical
+    }
+  }
+
+  async login(credentials: LoginCredentials): Promise<LoginResult> {
+    const result = await this.provider.login(credentials);
+    this.sessionManager.setSession(result.session);
+    return result;
   }
 
   async logout(options?: LogoutOptions): Promise<void> {
@@ -32,15 +47,27 @@ export class IdentityAPI {
     return this.provider.getSession();
   }
 
-  async getDevices(): Promise<RelayDevice[]> {
+  async getDevices(): Promise<DeviceInfo[]> {
     return this.provider.getDevices();
   }
 
-  async approveDevice(deviceId: string): Promise<void> {
-    return this.provider.approveDevice(deviceId);
+  async renameDevice(deviceId: string, newName: string): Promise<void> {
+    return this.provider.renameDevice(deviceId, newName);
   }
 
   async revokeDevice(deviceId: string): Promise<void> {
     return this.provider.revokeDevice(deviceId);
+  }
+
+  async saveKeyMaterial(keyMaterial: KeyMaterial): Promise<void> {
+    return this.provider.saveKeyMaterial(keyMaterial);
+  }
+
+  async getKeyMaterial(): Promise<KeyMaterial | null> {
+    return this.provider.getKeyMaterial();
+  }
+
+  async clearKeyMaterial(): Promise<void> {
+    return this.provider.clearKeyMaterial();
   }
 }

@@ -1,5 +1,7 @@
 import type { ServicesConfig } from "@relay/services";
 import type { KdfContext } from "@relay/crypto";
+import type { DeviceInfo, LoginResult } from "@relay/types";
+export type { DeviceInfo, LoginResult };
 
 export type RelayStatus = "uninitialized" | "locked" | "unlocked";
 
@@ -107,16 +109,42 @@ export interface LoginOptions {
 
 export interface LogoutOptions {
   global?: boolean;
+  clearLocalData?: boolean;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+  deviceId?: string;
+  deviceName?: string;
+  platform?: string;
+  os?: string;
+  appVersion?: string;
+  devicePublicKey?: string;
+  signingPublicKey?: string;
+  pushToken?: string;
+}
+
+export interface KeyMaterial {
+  encryptedMasterKey: string;
+  iv: string;
+  kekSalt: string;
+  kdfMemLimit: number;
+  kdfOpsLimit: number;
 }
 
 export interface IdentityProvider {
-  login(options?: LoginOptions): Promise<RelaySession>;
+  login(credentials: LoginCredentials): Promise<LoginResult>;
   logout(options?: LogoutOptions): Promise<void>;
   getSession(): Promise<RelaySession | null>;
-  getDevices(): Promise<RelayDevice[]>;
-  approveDevice(deviceId: string): Promise<void>;
+  getDevices(): Promise<DeviceInfo[]>;
+  renameDevice(deviceId: string, newName: string): Promise<void>;
   revokeDevice(deviceId: string): Promise<void>;
   onSessionChange(handler: (session: RelaySession | null) => void): () => void;
+
+  saveKeyMaterial(keyMaterial: KeyMaterial): Promise<void>;
+  getKeyMaterial(): Promise<KeyMaterial | null>;
+  clearKeyMaterial(): Promise<void>;
 }
 
 export type SyncOperationType =

@@ -8,6 +8,12 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@relay/types": "workspace:*",
     "bip39": "^3.1.0",
@@ -16,6 +22,7 @@
   "devDependencies": {
     "@types/bip39": "^2.4.2",
     "@types/libsodium-wrappers-sumo": "^0.7.8",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
   }
 }

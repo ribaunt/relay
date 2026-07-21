@@ -59,6 +59,28 @@ export const getSessionByTokenHash = query({
   }
 });
 
+// ─── verifySessionByTokenHash ─────────────────────────────────────────────────
+// Same lookup as getSessionByTokenHash, but as a mutation so the read is
+// sequenced after prior writes (e.g. session create from SRP complete).
+// Use this when the session was just created and a query might still be stale.
+
+export const verifySessionByTokenHash = mutation({
+  args: {
+    token_hash: v.string()
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query('sessions')
+      .withIndex('by_token_hash', (q) => q.eq('token_hash', args.token_hash))
+      .unique();
+
+    if (session === null) return null;
+    if (session.expires_at < Date.now()) return null;
+
+    return session;
+  }
+});
+
 // ─── getUserSessions ──────────────────────────────────────────────────────────
 // Lists all active (non-expired) sessions for a user.
 

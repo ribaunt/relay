@@ -40,6 +40,7 @@ type HandoffRequest = {
   mode: HandoffMode;
 };
 type SRPCompleteResult = {
+  sessionToken?: string;
   encryptedMasterKey: string;
   iv: string;
   kekSalt: string;
@@ -101,6 +102,47 @@ function LoginPageContent() {
     router.replace('/');
   };
 
+  async function storeKekForTokenHandoff(
+    kekHex: string,
+    sessionToken?: string
+  ): Promise<boolean> {
+    // Retry a few times in case the session is not yet visible to Convex.
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        const hres = await fetch('/api/relay/handoff-master-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            kekHex,
+            ...(sessionToken ? { sessionToken } : {})
+          })
+        });
+        if (hres.ok) {
+          return true;
+        }
+        const body = await hres.text().catch(() => '');
+        console.warn(
+          `handoff-master-key POST returned ${hres.status} (attempt ${attempt + 1}/${maxAttempts})`,
+          body
+        );
+        if (hres.status !== 401 && hres.status !== 503) {
+          return false;
+        }
+      } catch (err) {
+        console.warn(
+          `handoff-master-key POST network error (attempt ${attempt + 1}/${maxAttempts}):`,
+          err
+        );
+      }
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+      }
+    }
+    return false;
+  }
+
   async function attemptMasterKeyHandoff(
     currentPassword: string,
     completeData: SRPCompleteResult
@@ -120,11 +162,29 @@ function LoginPageContent() {
     });
 
     if (!validationRes.ok) {
-      throw new Error('The requesting Relay app is not allowed to receive master-key handoff.');
+      const vErr = await validationRes.json().catch(() => ({}));
+      throw new Error(`Handoff validation failed (${validationRes.status}): ${JSON.stringify(vErr)}`);
     }
 
     const sodium = await initSodium();
+    // Derive KEK from the password — never send the password or plaintext
+    // master key to the server. The token endpoint will use this KEK to
+    // decrypt the encrypted master-key blob and hand off the plaintext key.
     const kek = await deriveKEK(currentPassword, sodium.from_base64(completeData.kekSalt));
+
+    const kekHex = Array.from(kek)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    const stored = await storeKekForTokenHandoff(kekHex, completeData.sessionToken);
+    if (!stored) {
+      console.warn(
+        'Failed to store KEK for token handoff; OAuth token exchange will not include plaintext master key'
+      );
+    }
+
+    // Also attempt client-side handoff (popup postMessage / bridge cookie) for
+    // flows that can receive the key without waiting on the token endpoint.
     const masterKey = await decryptMasterKey(
       completeData.encryptedMasterKey,
       completeData.iv,
@@ -138,7 +198,7 @@ function LoginPageContent() {
       });
 
       if (!sessionRes.ok) {
-        throw new Error('Session was not established before key handoff.');
+        throw new Error(`Session /me returned ${sessionRes.status}`);
       }
 
       const sessionData = (await sessionRes.json()) as {
@@ -148,7 +208,7 @@ function LoginPageContent() {
 
       const sub = sessionData.user?.id;
       if (!sessionData.authenticated || typeof sub !== 'string') {
-        throw new Error('Authenticated session lookup failed during handoff.');
+        throw new Error(`Session /me invalid: authenticated=${sessionData.authenticated}, sub=${typeof sub}`);
       }
 
       const payload = await createMasterKeyHandoff({
@@ -331,9 +391,13 @@ function LoginPageContent() {
       }
 
       const completeData = (await completeRes.json()) as SRPCompleteResult;
+      // Capture password for KEK derivation, then clear React state so the
+      // plaintext password does not linger after navigation.
+      const passwordForHandoff = password;
+      setPassword('');
 
       try {
-        await attemptMasterKeyHandoff(password, completeData);
+        await attemptMasterKeyHandoff(passwordForHandoff, completeData);
       } catch (handoffError) {
         console.warn('Master-key handoff failed, falling back to encrypted bootstrap only.', handoffError);
       }

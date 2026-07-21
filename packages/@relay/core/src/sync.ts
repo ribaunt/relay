@@ -122,6 +122,16 @@ export class SyncManager {
     return true;
   }
 
+  stop(): void {
+    this.active = false;
+    for (const op of this.queue) {
+      if (op.status === "pending" || op.status === "in_progress") {
+        op.status = "cancelled";
+        op.updatedAt = Date.now();
+      }
+    }
+  }
+
   clearCompleted(): void {
     this.queue = this.queue.filter(
       (op) => op.status !== "completed" && op.status !== "cancelled",

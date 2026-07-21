@@ -198,6 +198,53 @@ export type RecoveryResetPasswordPayload = {
   recovery_kek_salt: string
 }
 
+export type DeviceStatus = "active" | "revoked";
+
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  platform?: string;
+  os?: string;
+  appVersion?: string;
+  createdAt: number;
+  lastSeen: number;
+  pushToken?: string;
+  devicePublicKey?: string;
+  signingPublicKey?: string;
+  status: DeviceStatus;
+}
+
+export interface DeviceRegistrationRequest {
+  deviceId: string;
+  name: string;
+  platform?: string;
+  os?: string;
+  appVersion?: string;
+  devicePublicKey?: string;
+  signingPublicKey?: string;
+  pushToken?: string;
+}
+
+export interface DeviceRegistrationResponse {
+  deviceId: string;
+  created: boolean;
+}
+
+export interface LoginResult {
+  session: {
+    sub: string;
+    name?: string;
+    picture?: string;
+    emailVerified?: boolean;
+    expiresAt: number;
+  };
+  encryptedMasterKey: string;
+  iv: string;
+  kekSalt: string;
+  kdfMemLimit: number;
+  kdfOpsLimit: number;
+}
+
 export type AuditEventType =
   | "register"
   | "login"

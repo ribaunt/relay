@@ -113,6 +113,7 @@ async function deriveWrappingKey(kekSalt: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: "HKDF",
+      hash: "SHA-256",
       salt,
       info: new TextEncoder().encode("relay-master-key-wrap"),
     },

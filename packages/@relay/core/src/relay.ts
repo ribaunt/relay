@@ -9,11 +9,22 @@ import { RelayNotifications } from "./notifications";
 import type {
   RelayConfig,
   RelaySession,
-  RelayDevice,
   RelayEvent,
   RelayEventHandler,
   RelayStatus,
+  LoginCredentials,
+  LogoutOptions,
+  DeviceInfo,
+  KeyMaterial,
 } from "./types";
+import { deriveKEK, decryptMasterKey, initSodium } from "@relay/crypto";
+
+export interface DeviceAPI {
+  current(): DeviceInfo | null;
+  list(): Promise<DeviceInfo[]>;
+  rename(id: string, name: string): Promise<void>;
+  revoke(id: string): Promise<void>;
+}
 
 export class Relay {
   private static instance: Relay | null = null;
@@ -27,6 +38,7 @@ export class Relay {
   private searchAPI: SearchAPI | null = null;
   private identityAPI: IdentityAPI | null = null;
   private config: RelayConfig;
+  private currentDeviceInfo: DeviceInfo | null = null;
 
   private constructor(config: RelayConfig = {}) {
     this.config = config;
@@ -87,12 +99,25 @@ export class Relay {
     return this.lockManager.isUnlocked;
   }
 
+  get masterKeyHex(): string | null {
+    const key = this.lockManager.getKey();
+    if (!key) return null;
+    return Array.from(key)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
   get session(): RelaySession | null {
     return this.sessionManager.session;
   }
 
-  get device(): RelayDevice | null {
-    return null;
+  get device(): DeviceAPI {
+    return {
+      current: () => this.currentDeviceInfo,
+      list: () => this.getDevices(),
+      rename: (id: string, name: string) => this.renameDevice(id, name),
+      revoke: (id: string) => this.revokeDevice(id),
+    };
   }
 
   get keys(): KeysAPI {
@@ -121,37 +146,143 @@ export class Relay {
     return this.syncManager;
   }
 
-  async unlock(masterKey: Uint8Array): Promise<void> {
+  async login(
+    email: string,
+    password: string,
+    deviceInfo?: {
+      deviceId: string;
+      deviceName: string;
+      platform?: string;
+      os?: string;
+      appVersion?: string;
+      devicePublicKey?: string;
+      signingPublicKey?: string;
+      pushToken?: string;
+    },
+  ): Promise<void> {
+    if (!this.identityAPI) {
+      throw new Error(
+        "Identity is not configured. Provide an identityProvider in RelayConfig.",
+      );
+    }
+
+    const credentials: LoginCredentials = {
+      email,
+      password,
+      ...(deviceInfo ?? {}),
+    };
+
+    const result = await this.identityAPI.login(credentials);
+
+    const sodium = await initSodium();
+    const kek = await deriveKEK(password, sodium.from_base64(result.kekSalt));
+    const masterKey = await decryptMasterKey(
+      result.encryptedMasterKey,
+      result.iv,
+      kek,
+    );
+
+    const keyMaterial: KeyMaterial = {
+      encryptedMasterKey: result.encryptedMasterKey,
+      iv: result.iv,
+      kekSalt: result.kekSalt,
+      kdfMemLimit: result.kdfMemLimit,
+      kdfOpsLimit: result.kdfOpsLimit,
+    };
+
+    await this.identityAPI.saveKeyMaterial(keyMaterial);
+
+    if (result.session.sub && deviceInfo) {
+      this.currentDeviceInfo = {
+        id: deviceInfo.deviceId,
+        name: deviceInfo.deviceName,
+        platform: deviceInfo.platform,
+        os: deviceInfo.os,
+        appVersion: deviceInfo.appVersion,
+        createdAt: Date.now(),
+        lastSeen: Date.now(),
+        devicePublicKey: deviceInfo.devicePublicKey,
+        signingPublicKey: deviceInfo.signingPublicKey,
+        status: "active",
+      };
+    }
+
+    await this.lockManager.unlock(masterKey);
+  }
+
+  async unlock(keyOrPassword: Uint8Array | string): Promise<void> {
+    let masterKey: Uint8Array;
+
+    if (keyOrPassword instanceof Uint8Array) {
+      masterKey = keyOrPassword;
+    } else if (typeof keyOrPassword === "string") {
+      if (!this.identityAPI) {
+        throw new Error(
+          "Identity is not configured. Provide an identityProvider in RelayConfig.",
+        );
+      }
+
+      const keyMaterial = await this.identityAPI.getKeyMaterial();
+      if (!keyMaterial) {
+        throw new Error(
+          "No encrypted key material found locally. Call relay.login() first.",
+        );
+      }
+
+      const sodium = await initSodium();
+      const kek = await deriveKEK(keyOrPassword, sodium.from_base64(keyMaterial.kekSalt));
+      masterKey = await decryptMasterKey(
+        keyMaterial.encryptedMasterKey,
+        keyMaterial.iv,
+        kek,
+      );
+    } else {
+      throw new Error("Invalid argument: expected a password string or master key Uint8Array.");
+    }
+
     await this.lockManager.unlock(masterKey);
   }
 
   async lock(): Promise<void> {
     this.keysAPI.clearCache();
     await this.lockManager.lock();
-    this.sessionManager.clear();
+    this.syncManager.stop();
   }
 
-  async login(options?: Parameters<IdentityAPI["login"]>[0]): Promise<RelaySession> {
+  async logout(options?: LogoutOptions): Promise<void> {
     if (!this.identityAPI) {
       throw new Error(
         "Identity is not configured. Provide an identityProvider in RelayConfig.",
       );
     }
-    return this.identityAPI.login(options);
-  }
 
-  async logout(options?: Parameters<IdentityAPI["logout"]>[0]): Promise<void> {
-    if (!this.identityAPI) {
-      throw new Error(
-        "Identity is not configured. Provide an identityProvider in RelayConfig.",
-      );
-    }
-    await this.identityAPI.logout(options);
     this.keysAPI.clearCache();
     await this.lockManager.lock();
+    this.syncManager.stop();
+    await this.identityAPI.logout(options);
+
+    if (options?.clearLocalData !== false) {
+      await this.identityAPI.clearKeyMaterial();
+      await this.clearLocalCaches();
+    }
   }
 
-  async getDevices(): Promise<RelayDevice[]> {
+  private async clearLocalCaches(): Promise<void> {
+    if (typeof caches !== "undefined") {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter((key) => key.startsWith("relay-"))
+            .map((key) => caches.delete(key)),
+        );
+      } catch {
+        // Service worker caches may not be available
+      }
+    }
+  }
+
+  private async getDevices(): Promise<DeviceInfo[]> {
     if (!this.identityAPI) {
       throw new Error(
         "Identity is not configured. Provide an identityProvider in RelayConfig.",
@@ -160,16 +291,16 @@ export class Relay {
     return this.identityAPI.getDevices();
   }
 
-  async approveDevice(deviceId: string): Promise<void> {
+  private async renameDevice(deviceId: string, newName: string): Promise<void> {
     if (!this.identityAPI) {
       throw new Error(
         "Identity is not configured. Provide an identityProvider in RelayConfig.",
       );
     }
-    return this.identityAPI.approveDevice(deviceId);
+    return this.identityAPI.renameDevice(deviceId, newName);
   }
 
-  async revokeDevice(deviceId: string): Promise<void> {
+  private async revokeDevice(deviceId: string): Promise<void> {
     if (!this.identityAPI) {
       throw new Error(
         "Identity is not configured. Provide an identityProvider in RelayConfig.",

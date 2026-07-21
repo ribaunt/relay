@@ -11,7 +11,8 @@ import { checkRateLimit } from '@/lib/rateLimit';
 import { signAccessToken, signIDToken } from '@/lib/oidc-tokens';
 import { getEnv } from '@/lib/env';
 import { createMasterKeyHandoff, HANDOFF_SCOPE } from '@/lib/master-key-handoff';
-import { fromBase64Url } from '@relay/crypto';
+import { decryptMasterKey } from '@relay/crypto';
+import { consumeHandoffKek, hexToBytes } from '@/lib/handoff-key-store';
 
 type HandoffMode = 'popup' | 'redirect';
 
@@ -363,14 +364,48 @@ export async function POST(request: NextRequest) {
       });
 
       if (handoffEligibility.eligible) {
+        // Decrypt encrypted master-key blob with the password-derived KEK that
+        // the login page stashed after SRP. Never hand off the ciphertext as
+        // if it were the plaintext key.
+        let masterKeyBytes: Uint8Array | null = null;
+        let kek: Uint8Array | null = null;
         try {
-          const encryptedKeyResult = await fetchAuthQuery(api.users.getEncryptedMasterKeyById, {
-            user_id: consumed.code!.user_id
-          });
+          const kekHex = consumeHandoffKek(consumed.code!.user_id);
+          if (!kekHex) {
+            console.warn('Skipping master key handoff: no KEK in handoff store', {
+              requestId,
+              clientId
+            });
+          } else {
+            const encryptedKeyResult = await fetchAuthQuery(api.users.getEncryptedMasterKeyById, {
+              user_id: consumed.code!.user_id
+            });
+            if (!encryptedKeyResult) {
+              console.warn('Skipping master key handoff: encrypted master key missing', {
+                requestId,
+                clientId
+              });
+            } else {
+              kek = hexToBytes(kekHex);
+              masterKeyBytes = await decryptMasterKey(
+                encryptedKeyResult.encrypted_master_key,
+                encryptedKeyResult.iv,
+                kek
+              );
 
-          if (encryptedKeyResult) {
-            const masterKeyBytes = fromBase64Url(encryptedKeyResult.encrypted_master_key);
+              if (masterKeyBytes.length !== 32) {
+                console.error('Skipping master key handoff: decrypted key has unexpected length', {
+                  requestId,
+                  clientId,
+                  length: masterKeyBytes.length
+                });
+                masterKeyBytes.fill(0);
+                masterKeyBytes = null;
+              }
+            }
+          }
 
+          if (masterKeyBytes) {
             const handoffPayload = await createMasterKeyHandoff({
               issuer: env.SITE_URL,
               audience: handoffEligibility.audience,
@@ -393,6 +428,9 @@ export async function POST(request: NextRequest) {
             error
           });
           // Don't fail the token exchange, just skip handoff
+        } finally {
+          if (kek) kek.fill(0);
+          if (masterKeyBytes) masterKeyBytes.fill(0);
         }
       } else if (scopes.includes(HANDOFF_SCOPE)) {
         console.warn('Skipping master key handoff payload generation (fail-open):', {

@@ -97,6 +97,23 @@ export default defineSchema({
     created_at: v.number()
   }).index('by_user', ['user_id']),
 
+  devices: defineTable({
+    user_id: v.id('users'),
+    device_id: v.string(),
+    name: v.string(),
+    platform: v.optional(v.string()),
+    os: v.optional(v.string()),
+    app_version: v.optional(v.string()),
+    device_public_key: v.optional(v.string()),
+    signing_public_key: v.optional(v.string()),
+    push_token: v.optional(v.string()),
+    status: v.union(v.literal('active'), v.literal('revoked')),
+    last_seen: v.number(),
+    created_at: v.number()
+  })
+    .index('by_user', ['user_id'])
+    .index('by_device_id', ['device_id']),
+
   audit_log: defineTable({
     user_id: v.id('users'),
     event_type: v.union(

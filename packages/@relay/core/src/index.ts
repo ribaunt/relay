@@ -1,4 +1,5 @@
 export { Relay } from "./relay";
+export type { DeviceAPI } from "./relay";
 export { RelayNotifications } from "./notifications";
 export { SessionManager } from "./session";
 export { LockManager } from "./lock";
@@ -25,7 +26,11 @@ export type {
   SearchResult,
   IdentityProvider,
   LoginOptions,
+  LoginCredentials,
   LogoutOptions,
+  KeyMaterial,
+  DeviceInfo,
+  LoginResult,
   SyncOperation,
   SyncOperationType,
   SyncOperationStatus,

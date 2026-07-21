@@ -158,7 +158,7 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
             <p className="mt-2 text-sm font-medium">decryptedMasterKey:</p>
             {isUnlocked ? (
               <p className="mt-1 break-all rounded bg-muted p-2 text-xs">
-                Unlocked in memory via Relay Core
+                {relay?.masterKeyHex ?? "Unlocked in memory via Relay Core"}
               </p>
             ) : (
               <p className="mt-1 text-xs text-muted-foreground">

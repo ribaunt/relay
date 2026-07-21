@@ -86,9 +86,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let body: SRPCompleteRequest;
+  let body: SRPCompleteRequest & {
+    deviceId?: string;
+    deviceName?: string;
+    platform?: string;
+    os?: string;
+    appVersion?: string;
+    devicePublicKey?: string;
+    signingPublicKey?: string;
+    pushToken?: string;
+  };
   try {
-    body = (await req.json()) as SRPCompleteRequest;
+    body = (await req.json()) as typeof body;
   } catch {
     return createErrorResponse(
       400,
@@ -288,6 +297,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     device_fingerprint: deviceFingerprint,
     expires_at: Date.now() + SESSION_TTL_MS
   });
+
+  if (body.deviceId && body.deviceName) {
+    try {
+      await getConvexClient().mutation(api.devices.registerDevice, {
+        user_id: user._id,
+        device_id: body.deviceId,
+        name: body.deviceName,
+        platform: body.platform,
+        os: body.os,
+        app_version: body.appVersion,
+        device_public_key: body.devicePublicKey,
+        signing_public_key: body.signingPublicKey,
+        push_token: body.pushToken
+      });
+    } catch (error) {
+      otelLogger.emit({
+        body: 'device registration failed (non-fatal)',
+        severityNumber: SeverityNumber.WARN,
+        attributes: {
+          requestId,
+          route: '/api/srp/complete',
+          userId: user._id,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+    }
+  }
 
   const keys = await getConvexClient().query(api.keys.getEncryptedKeys, {
     user_id: user._id
