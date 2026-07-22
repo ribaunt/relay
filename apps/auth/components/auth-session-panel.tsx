@@ -69,14 +69,13 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
     if (!session) return null
     return {
       sub: session.bootstrap.sub,
+      email: session.bootstrap.email,
       hasPendingEmailChange: session.bootstrap.hasPendingEmailChange,
       encryptedMasterKey: session.bootstrap.encryptedMasterKey,
       iv: session.bootstrap.iv,
       kekSalt: session.bootstrap.kekSalt,
       kdfMemLimit: session.bootstrap.kdfMemLimit,
       kdfOpsLimit: session.bootstrap.kdfOpsLimit,
-      emailEncrypted: session.bootstrap.emailEncrypted,
-      emailIv: session.bootstrap.emailIv,
     }
   }, [session])
 

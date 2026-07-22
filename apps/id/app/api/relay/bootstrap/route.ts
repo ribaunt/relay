@@ -55,14 +55,13 @@ export async function GET(request: NextRequest) {
       sub: auth.userId,
       name: user.display_name ?? null,
       avatarUrl: user.avatar_url ?? null,
+      email: securityContext.email,
       emailVerified: user.email_verified,
       encryptedMasterKey: securityContext.encrypted_master_key,
       iv: securityContext.iv,
       kekSalt: securityContext.kek_salt,
       kdfMemLimit: securityContext.kdf_mem_limit,
       kdfOpsLimit: securityContext.kdf_ops_limit,
-      emailEncrypted: securityContext.email_encrypted,
-      emailIv: securityContext.email_iv,
       hasPendingEmailChange: pendingEmail !== null
     },
     {

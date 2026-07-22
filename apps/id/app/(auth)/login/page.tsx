@@ -13,7 +13,6 @@ import {
   deriveKEK,
   decryptMasterKey,
   encryptMasterKey,
-  encryptWithMasterKey,
   initSodium,
   KDF_PARAMS
 } from '@/lib/crypto/keys';
@@ -70,6 +69,7 @@ function LoginPageContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Continue');
   const [error, setError] = useState('');
@@ -476,11 +476,7 @@ function LoginPageContent() {
       // 4. Hash email
       const emailHash = await sha256(normalizedEmail);
 
-      // 5. Encrypt email with master key
-      const { encrypted: emailEncrypted, iv: emailIv } =
-        await encryptWithMasterKey(normalizedEmail, masterKey);
-
-      // 6. Generate recovery key and encrypt master key with it
+      // 5. Generate recovery key and encrypt master key with it
       const recovery = generateRecoveryKey();
       const normalizedRecovery = normalizeRecoveryKey(recovery);
       const recoveryBlob = await encryptMasterKeyWithRecovery(
@@ -497,16 +493,14 @@ function LoginPageContent() {
       // 7. Get sodium for base64 conversion
       const sodium = await initSodium();
 
-      // 8. Send to server
+      // 6. Send to server
       setLoadingText('Almost there...');
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          plainEmail: normalizedEmail,
+          email: normalizedEmail,
           email_hash: emailHash,
-          email_encrypted: emailEncrypted,
-          email_iv: emailIv,
           display_name: displayName || undefined,
           srp_salt: srpSalt,
           srp_verifier: srpVerifier,
@@ -797,12 +791,6 @@ function LoginPageContent() {
                   <div className={styles.strengthLabel}>
                     {passwordStrength.label}
                   </div>
-                  {passwordIsWeak && (
-                    <div className={`${styles.fieldHint} ${styles.fieldHintError}`}>
-                      Use at least 10 characters with upper and lower case
-                      letters, a number, and a symbol.
-                    </div>
-                  )}
               </div>
             </div>
 
@@ -810,19 +798,32 @@ function LoginPageContent() {
               <label htmlFor="confirmPassword" className={styles.label}>
                 Confirm password
               </label>
-              <input
-                id="confirmPassword"
-                type={showPassword ? 'text' : 'password'}
-                className={`${styles.input} ${styles.passwordInput} ${
-                  confirmPassword.length > 0 && password !== confirmPassword
-                    ? styles.inputError
-                    : ''
-                }`}
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-              />
+              <div className={styles.passwordWrapper}>
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  className={`${styles.input} ${styles.passwordInput} ${
+                    confirmPassword.length > 0 && password !== confirmPassword
+                      ? styles.inputError
+                      : ''
+                  }`}
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  tabIndex={-1}
+                  aria-label={
+                    showConfirmPassword ? 'Hide password' : 'Show password'
+                  }
+                >
+                  {showConfirmPassword ? <ViewOffIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
               {confirmPasswordMismatch && (
                 <div className={`${styles.fieldHint} ${styles.fieldHintError}`}>
                   Passwords do not match.

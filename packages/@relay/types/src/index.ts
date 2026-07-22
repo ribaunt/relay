@@ -50,14 +50,13 @@ export type BootstrapPayload = {
   sub: string
   name: string
   avatarUrl: string
+  email: string
   emailVerified: boolean
   encryptedMasterKey: string
   iv: string
   kekSalt: string
   kdfMemLimit: number
   kdfOpsLimit: number
-  emailEncrypted: string
-  emailIv: string
   hasPendingEmailChange: boolean
 }
 
@@ -137,9 +136,8 @@ export type SRPCompleteResponse = {
 }
 
 export type CreateUserPayload = {
+  email: string
   email_hash: string
-  email_encrypted: string
-  email_iv: string
   display_name?: string
   srp_salt: string
   srp_verifier: string

@@ -65,9 +65,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-real-ip') ??
     'unknown';
 
-  let body: CreateUserPayload & { plainEmail: string };
+  let body: CreateUserPayload;
   try {
-    body = (await req.json()) as CreateUserPayload & { plainEmail: string };
+    body = (await req.json()) as CreateUserPayload;
   } catch {
     return createErrorResponse(
       400,
@@ -77,10 +77,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const {
-    plainEmail,
+    email,
     email_hash,
-    email_encrypted,
-    email_iv,
     display_name,
     srp_salt,
     srp_verifier,
@@ -97,10 +95,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } = body;
 
   if (
-    typeof plainEmail !== 'string' ||
+    typeof email !== 'string' ||
     typeof email_hash !== 'string' ||
-    typeof email_encrypted !== 'string' ||
-    typeof email_iv !== 'string' ||
     typeof srp_salt !== 'string' ||
     typeof srp_verifier !== 'string' ||
     typeof recovery_srp_salt !== 'string' ||
@@ -121,7 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (plainEmail.length > 320) {
+  if (email.length > 320) {
     return createErrorResponse(
       400,
       'Email address is too long. Maximum 320 characters.',
@@ -129,7 +125,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const expectedHash = await sha256(plainEmail.toLowerCase().trim());
+  const expectedHash = await sha256(email.toLowerCase().trim());
   if (expectedHash !== email_hash) {
     otelLogger.emit({
       body: 'registration failed: email hash mismatch',
@@ -150,9 +146,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let userId: Id<'users'> | null = null;
   try {
     userId = await getConvexClient().mutation(api.users.createUser, {
+      email,
       email_hash,
-      email_encrypted,
-      email_iv,
       display_name,
       srp_salt,
       srp_verifier,
@@ -237,7 +232,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await Promise.race([
       sendVerificationEmail({
-        to: plainEmail,
+        to: email,
         verificationCode,
         displayName: display_name
       }),

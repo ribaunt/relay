@@ -7,9 +7,8 @@ import { v } from 'convex/values';
 
 export const createUser = mutation({
   args: {
+    email: v.string(),
     email_hash: v.string(),
-    email_encrypted: v.string(),
-    email_iv: v.string(),
     display_name: v.optional(v.string()),
     srp_salt: v.string(),
     srp_verifier: v.string(),
@@ -38,9 +37,8 @@ export const createUser = mutation({
     const now = Date.now();
 
     const userId = await ctx.db.insert('users', {
+      email: args.email,
       email_hash: args.email_hash,
-      email_encrypted: args.email_encrypted,
-      email_iv: args.email_iv,
       email_verified: false,
       display_name: args.display_name,
       srp_salt: args.srp_salt,
@@ -139,8 +137,7 @@ export const getUserProfileById = query({
 });
 
 // ─── getUserSecurityContextById ──────────────────────────────────────────────
-// Returns encrypted-at-rest material needed for authenticated client-side
-// password and email updates.
+// Returns material needed for authenticated client-side password updates.
 
 export const getUserSecurityContextById = query({
   args: {
@@ -158,8 +155,7 @@ export const getUserSecurityContextById = query({
     if (keyRecord === null) return null;
 
     return {
-      email_encrypted: user.email_encrypted,
-      email_iv: user.email_iv,
+      email: user.email,
       encrypted_master_key: keyRecord.encrypted_master_key,
       iv: keyRecord.iv,
       kek_salt: keyRecord.kek_salt,
@@ -262,9 +258,8 @@ export const commitAvatarUpload = mutation({
 export const stageEmailChange = mutation({
   args: {
     user_id: v.id('users'),
+    pending_email: v.string(),
     pending_email_hash: v.string(),
-    pending_email_encrypted: v.string(),
-    pending_email_iv: v.string(),
     pending_srp_salt: v.string(),
     pending_srp_verifier: v.string()
   },
@@ -284,9 +279,8 @@ export const stageEmailChange = mutation({
     }
 
     await ctx.db.patch(args.user_id, {
+      pending_email: args.pending_email,
       pending_email_hash: args.pending_email_hash,
-      pending_email_encrypted: args.pending_email_encrypted,
-      pending_email_iv: args.pending_email_iv,
       pending_srp_salt: args.pending_srp_salt,
       pending_srp_verifier: args.pending_srp_verifier,
       updated_at: Date.now()
@@ -305,9 +299,8 @@ export const getPendingEmailChangeById = query({
     if (user === null) return null;
 
     if (
+      user.pending_email === undefined ||
       user.pending_email_hash === undefined ||
-      user.pending_email_encrypted === undefined ||
-      user.pending_email_iv === undefined ||
       user.pending_srp_salt === undefined ||
       user.pending_srp_verifier === undefined
     ) {
@@ -315,9 +308,8 @@ export const getPendingEmailChangeById = query({
     }
 
     return {
+      pending_email: user.pending_email,
       pending_email_hash: user.pending_email_hash,
-      pending_email_encrypted: user.pending_email_encrypted,
-      pending_email_iv: user.pending_email_iv,
       pending_srp_salt: user.pending_srp_salt,
       pending_srp_verifier: user.pending_srp_verifier
     };
@@ -335,9 +327,8 @@ export const commitStagedEmailChange = mutation({
     if (user === null) throw new Error('USER_NOT_FOUND');
 
     if (
+      user.pending_email === undefined ||
       user.pending_email_hash === undefined ||
-      user.pending_email_encrypted === undefined ||
-      user.pending_email_iv === undefined ||
       user.pending_srp_salt === undefined ||
       user.pending_srp_verifier === undefined
     ) {
@@ -358,15 +349,13 @@ export const commitStagedEmailChange = mutation({
     const now = Date.now();
 
     await ctx.db.patch(args.user_id, {
+      email: user.pending_email,
       email_hash: user.pending_email_hash,
-      email_encrypted: user.pending_email_encrypted,
-      email_iv: user.pending_email_iv,
       email_verified: true,
       srp_salt: user.pending_srp_salt,
       srp_verifier: user.pending_srp_verifier,
+      pending_email: undefined,
       pending_email_hash: undefined,
-      pending_email_encrypted: undefined,
-      pending_email_iv: undefined,
       pending_srp_salt: undefined,
       pending_srp_verifier: undefined,
       updated_at: now

@@ -12,10 +12,8 @@ import { toast } from 'sonner';
 import { generateSRPRegistration } from '@/lib/crypto/srp';
 import {
   decryptMasterKey,
-  decryptWithMasterKey,
   deriveKEK,
   encryptMasterKey,
-  encryptWithMasterKey,
   generateKEKSalt,
   initSodium,
   KDF_PARAMS
@@ -34,13 +32,12 @@ type SessionMeResponse = {
 };
 
 type SecurityContextResponse = {
+  email: string;
   encryptedMasterKey: string;
   iv: string;
   kekSalt: string;
   kdfMemLimit: number;
   kdfOpsLimit: number;
-  emailEncrypted: string;
-  emailIv: string;
   hasPendingEmailChange: boolean;
 };
 
@@ -301,24 +298,6 @@ export default function SettingsPage() {
     setSavingEmailRequest(true);
 
     try {
-      const security = await fetchSecurityContext();
-      const sodium = await initSodium();
-
-      const kek = await deriveKEK(
-        emailPassword,
-        sodium.from_base64(security.kekSalt)
-      );
-
-      const masterKey = await decryptMasterKey(
-        security.encryptedMasterKey,
-        security.iv,
-        kek
-      );
-
-      const { encrypted, iv } = await encryptWithMasterKey(
-        normalizedEmail,
-        masterKey
-      );
       const emailHash = await sha256(normalizedEmail);
 
       const { srpSalt, srpVerifier } = await generateSRPRegistration(
@@ -331,10 +310,8 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          plainEmail: normalizedEmail,
+          email: normalizedEmail,
           email_hash: emailHash,
-          email_encrypted: encrypted,
-          email_iv: iv,
           srp_salt: srpSalt,
           srp_verifier: srpVerifier
         })
@@ -427,14 +404,8 @@ export default function SettingsPage() {
         oldKek
       );
 
-      const currentEmail = await decryptWithMasterKey(
-        security.emailEncrypted,
-        security.emailIv,
-        masterKey
-      );
-
       const { srpSalt, srpVerifier } = await generateSRPRegistration(
-        currentEmail,
+        security.email,
         newPassword
       );
 

@@ -4,9 +4,8 @@ import { v } from 'convex/values';
 export default defineSchema({
   users: defineTable({
     // identity
+    email: v.string(),
     email_hash: v.string(), // SHA-256 of lowercased email, for lookup
-    email_encrypted: v.string(), // libsodium encrypted email, for display
-    email_iv: v.string(),
     email_verified: v.boolean(),
 
     // profile
@@ -15,9 +14,8 @@ export default defineSchema({
     avatar_storage_id: v.optional(v.id('_storage')),
 
     // pending email change (staged until verification)
+    pending_email: v.optional(v.string()),
     pending_email_hash: v.optional(v.string()),
-    pending_email_encrypted: v.optional(v.string()),
-    pending_email_iv: v.optional(v.string()),
     pending_srp_salt: v.optional(v.string()),
     pending_srp_verifier: v.optional(v.string()),
 

@@ -165,30 +165,28 @@ export async function fetchBootstrap(accessToken: string): Promise<BootstrapPayl
 
   if (
     typeof bootstrap.sub !== "string" ||
+    typeof bootstrap.email !== "string" ||
     typeof bootstrap.encryptedMasterKey !== "string" ||
     typeof bootstrap.iv !== "string" ||
     typeof bootstrap.kekSalt !== "string" ||
     typeof bootstrap.kdfMemLimit !== "number" ||
     typeof bootstrap.kdfOpsLimit !== "number" ||
-    typeof bootstrap.emailEncrypted !== "string" ||
-    typeof bootstrap.emailIv !== "string" ||
     typeof bootstrap.hasPendingEmailChange !== "boolean"
   ) {
-    throw new IdpRequestError("Bootstrap payload missing required encrypted fields", response.status)
+    throw new IdpRequestError("Bootstrap payload missing required fields", response.status)
   }
 
   return {
     sub: bootstrap.sub,
     name: typeof bootstrap.name === "string" ? bootstrap.name : "",
     avatarUrl: typeof bootstrap.avatarUrl === "string" ? bootstrap.avatarUrl : "",
+    email: bootstrap.email,
     emailVerified: typeof bootstrap.emailVerified === "boolean" ? bootstrap.emailVerified : false,
     encryptedMasterKey: bootstrap.encryptedMasterKey,
     iv: bootstrap.iv,
     kekSalt: bootstrap.kekSalt,
     kdfMemLimit: bootstrap.kdfMemLimit,
     kdfOpsLimit: bootstrap.kdfOpsLimit,
-    emailEncrypted: bootstrap.emailEncrypted,
-    emailIv: bootstrap.emailIv,
     hasPendingEmailChange: bootstrap.hasPendingEmailChange,
   }
 }

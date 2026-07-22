@@ -31,13 +31,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return createJsonResponse({
     requestId,
+    email: securityContext.email,
     encryptedMasterKey: securityContext.encrypted_master_key,
     iv: securityContext.iv,
     kekSalt: securityContext.kek_salt,
     kdfMemLimit: securityContext.kdf_mem_limit,
     kdfOpsLimit: securityContext.kdf_ops_limit,
-    emailEncrypted: securityContext.email_encrypted,
-    emailIv: securityContext.email_iv,
     hasPendingEmailChange: !!pendingEmail
   });
 }

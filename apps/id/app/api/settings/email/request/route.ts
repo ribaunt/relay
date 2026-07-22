@@ -7,10 +7,8 @@ import { generate6DigitCode, sha256 } from '@/lib/hash';
 import { sendEmailChangeVerificationEmail } from '@/lib/email';
 
 interface EmailChangeRequestBody {
-  plainEmail: string;
+  email: string;
   email_hash: string;
-  email_encrypted: string;
-  email_iv: string;
   srp_salt: string;
   srp_verifier: string;
 }
@@ -31,17 +29,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   if (
-    typeof body.plainEmail !== 'string' ||
+    typeof body.email !== 'string' ||
     typeof body.email_hash !== 'string' ||
-    typeof body.email_encrypted !== 'string' ||
-    typeof body.email_iv !== 'string' ||
     typeof body.srp_salt !== 'string' ||
     typeof body.srp_verifier !== 'string'
   ) {
     return createErrorResponse(400, 'Missing or invalid fields.', requestId);
   }
 
-  const normalizedEmail = body.plainEmail.toLowerCase().trim();
+  const normalizedEmail = body.email.toLowerCase().trim();
   if (normalizedEmail.length === 0 || normalizedEmail.length > 320) {
     return createErrorResponse(400, 'Invalid email address.', requestId);
   }
@@ -54,9 +50,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     await getConvexClient().mutation(api.users.stageEmailChange, {
       user_id: auth.userId,
+      pending_email: body.email,
       pending_email_hash: body.email_hash,
-      pending_email_encrypted: body.email_encrypted,
-      pending_email_iv: body.email_iv,
       pending_srp_salt: body.srp_salt,
       pending_srp_verifier: body.srp_verifier
     });

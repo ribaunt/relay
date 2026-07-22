@@ -31,14 +31,13 @@ export interface BootstrapPayload {
   sub: string;
   name: string | null;
   avatarUrl: string | null;
+  email: string;
   emailVerified: boolean;
   encryptedMasterKey: string;
   iv: string;
   kekSalt: string;
   kdfMemLimit: number;
   kdfOpsLimit: number;
-  emailEncrypted: string;
-  emailIv: string;
   hasPendingEmailChange: boolean;
 }
 
