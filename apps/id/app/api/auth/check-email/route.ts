@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
 import { sha256 } from '@/lib/hash';
-import { checkRateLimit } from '@/lib/rateLimit';
 import {
   createRequestId,
   createErrorResponse,
@@ -38,15 +37,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     'unknown';
-
-  if (!checkRateLimit('/api/auth/check-email', 'ip', ip)) {
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
-  }
 
   try {
     const body = await req.json();

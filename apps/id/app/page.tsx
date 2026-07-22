@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Key01Icon, Loading03Icon, Logout02Icon, Settings01Icon } from 'hugeicons-react';
+import { Key01Icon, Logout02Icon, Settings01Icon } from 'hugeicons-react';
+import { Spinner } from '@/components/ui/spinner';
 import styles from './page.module.css';
 
 type SessionMeResponse = {
@@ -79,7 +80,7 @@ export default function Home() {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.loadingContent}>
-          <Loading03Icon className={styles.loadingIcon} size={44} />
+          <Spinner size={44} color="var(--accent)" />
         </div>
       </div>
     );
@@ -88,10 +89,7 @@ export default function Home() {
   if (logoutPending) {
     return (
       <div className={styles.loadingContainer}>
-        <div className={styles.loadingContent}>
-          <Loading03Icon className={styles.loadingIcon} size={44} />
-          <span className={styles.loadingText}>Logging you out...</span>
-        </div>
+        <Spinner size={44} color="var(--accent)" />
       </div>
     );
   }

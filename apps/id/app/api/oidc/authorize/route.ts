@@ -10,7 +10,6 @@ import {
   flushPostHog,
   getPostHogServer
 } from '@/lib/posthog-server';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { HANDOFF_QUERY_KEYS, HANDOFF_SCOPE } from '@/lib/master-key-handoff';
 
 type ParsedHandoffParams = {
@@ -248,16 +247,6 @@ export async function GET(request: NextRequest) {
         authenticated
       )
     );
-
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    currentStep = 'rate_limit.check';
-    const rateLimitResult = await withStep(currentStep, () =>
-      checkRateLimit('/api/oidc/authorize:auth_code', 'ip', ip)
-    );
-
-    if (!rateLimitResult) {
-      return new NextResponse('Too Many Requests', { status: 429 });
-    }
 
     if (!clientId || !redirectUri || !responseType || !scope || !codeChallenge || !state) {
       if (!redirectUri || redirectUri === 'invalid') {

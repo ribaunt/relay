@@ -3,6 +3,8 @@
 import type { ReactNode } from "react"
 import { useEffect } from "react"
 
+import { Spinner } from "@/components/ui/spinner"
+
 const AUTH_START_URL = "/oauth/start?mode=silent&returnTo=%2F"
 
 type AuthLoadingScreenProps = {
@@ -23,11 +25,7 @@ export default function AuthLoadingScreen({
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6">
       <div className="flex flex-col items-center gap-4 text-center text-white">
-        <div
-          className="relay-logo-skeleton h-[97px] w-[72px]"
-          role="img"
-          aria-label="Loading Relay"
-        />
+        <Spinner size={36} color="white" />
         {children ? <div className="max-w-sm text-sm text-white/70">{children}</div> : null}
       </div>
     </main>

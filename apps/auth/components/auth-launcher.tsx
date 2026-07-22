@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 
+import { Spinner } from "@/components/ui/spinner"
 import { useMasterKey } from "@/components/master-key-provider"
 import {
   createInteractiveStartUrl,
@@ -55,16 +56,8 @@ export default function AuthLauncher({ clientId, returnTo }: AuthLauncherProps) 
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6 text-white">
-      <div className="max-w-md space-y-3 text-center">
-        <h1 className="text-2xl font-semibold">Starting Relay sign-in</h1>
-        <p className="text-sm text-white/70">
-          Redirecting to id.relay.re for authentication.
-        </p>
-        {handoffError ? <p className="text-sm text-red-300">{handoffError}</p> : null}
-        <p className="text-xs text-white/50">
-          You will be redirected back after signing in.
-        </p>
-      </div>
+      <Spinner size={36} color="white" />
+      {handoffError ? <p className="text-sm text-red-300">{handoffError}</p> : null}
     </main>
   )
 }

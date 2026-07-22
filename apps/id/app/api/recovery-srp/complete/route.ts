@@ -3,7 +3,6 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
 import { verifySRPClientProof } from '@/lib/crypto/srp';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { sha256 } from '@/lib/hash';
 import { loggerProvider } from '@/instrumentation';
 import {
@@ -12,7 +11,6 @@ import {
   createJsonResponse
 } from '@/lib/api-response';
 
-const RATE_LIMIT_WINDOW_SECONDS = 900;
 const otelLogger = loggerProvider.getLogger('api.recovery-srp.complete');
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -26,15 +24,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     'unknown';
-
-  if (!checkRateLimit('/api/recovery-srp/complete', 'ip', ip)) {
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
-  }
 
   let body: {
     recoveryToken: string;

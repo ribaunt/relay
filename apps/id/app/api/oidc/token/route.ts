@@ -7,7 +7,6 @@ import {
   captureOIDCRefreshReplayDetected,
   flushPostHog
 } from '@/lib/posthog-server';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { signAccessToken, signIDToken } from '@/lib/oidc-tokens';
 import { getEnv } from '@/lib/env';
 import { createMasterKeyHandoff, HANDOFF_SCOPE } from '@/lib/master-key-handoff';
@@ -189,23 +188,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (grantType === 'authorization_code') {
-      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const rateLimitResult = await checkRateLimit('/api/oidc/token:auth_code', 'ip', ip);
-      if (!rateLimitResult) {
-        return NextResponse.json(
-          { error: 'temporarily_unavailable', error_description: 'Rate limit exceeded' },
-          { status: 429 }
-        );
-      }
-
-      const rateLimitResultClient = await checkRateLimit('/api/oidc/token:auth_code', 'client', clientId);
-      if (!rateLimitResultClient) {
-        return NextResponse.json(
-          { error: 'temporarily_unavailable', error_description: 'Rate limit exceeded' },
-          { status: 429 }
-        );
-      }
-
       if (!code || !redirectUri || !codeVerifier) {
         await captureOIDCTokenExchangeFailed(requestId, grantType, clientId, 'missing_parameters');
         await flushPostHog();
@@ -442,23 +424,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(response);
     } else if (grantType === 'refresh_token') {
-      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const rateLimitResult = await checkRateLimit('/api/oidc/token:refresh', 'ip', ip);
-      if (!rateLimitResult) {
-        return NextResponse.json(
-          { error: 'temporarily_unavailable', error_description: 'Rate limit exceeded' },
-          { status: 429 }
-        );
-      }
-
-      const rateLimitResultClient = await checkRateLimit('/api/oidc/token:refresh', 'client', clientId);
-      if (!rateLimitResultClient) {
-        return NextResponse.json(
-          { error: 'temporarily_unavailable', error_description: 'Rate limit exceeded' },
-          { status: 429 }
-        );
-      }
-
       if (!refreshToken) {
         await captureOIDCTokenExchangeFailed(requestId, grantType, clientId, 'missing_refresh_token');
         await flushPostHog();

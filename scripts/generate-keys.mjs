@@ -12,8 +12,6 @@ const ID_ENV_DEFAULTS = {
   RELAY_SERVICE_AUTH_ORIGIN: "http://localhost:3000",
   BETTER_AUTH_SECRET: null, // generated once if missing
   OIDC_JWKS_ACTIVE_KID: "dev-key-1",
-  REDIS_URL: "redis://localhost:6379",
-  REDIS_TOKEN: "dev-token",
   POSTHOG_KEY: "phc_placeholder",
 }
 

@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { createErrorResponse, createJsonResponse, createRequestId } from '@/lib/api-response';
 import { getAuthenticatedSession } from '@/lib/session-auth';
 import { generate6DigitCode, sha256 } from '@/lib/hash';
 import { sendEmailChangeVerificationEmail } from '@/lib/email';
-
-const RATE_LIMIT_WINDOW_SECONDS = 900;
 
 interface EmailChangeRequestBody {
   plainEmail: string;
@@ -24,27 +21,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await getAuthenticatedSession(req);
   if (!auth) {
     return createErrorResponse(401, 'Authentication required.', requestId);
-  }
-
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
-    'unknown';
-
-  const allowedIp = await checkRateLimit('/api/settings/email/request', 'ip', ip);
-  const allowedAccount = await checkRateLimit(
-    '/api/settings/email/request',
-    'account',
-    auth.userId
-  );
-
-  if (!allowedIp || !allowedAccount) {
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
   }
 
   let body: EmailChangeRequestBody;

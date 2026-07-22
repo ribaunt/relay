@@ -310,24 +310,6 @@ input[type='password']::-ms-clear {
   font-size: 16px;
 }
 
-/* Loading spinner */
-
-.spinner {
-  display: block;
-  color: var(--accent-text);
-  animation: iosSpinning 1s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes iosSpinning {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 /* Step indicator */
 
 .steps {

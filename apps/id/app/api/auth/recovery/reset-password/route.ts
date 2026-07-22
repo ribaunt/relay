@@ -2,7 +2,6 @@ import { SeverityNumber } from '@opentelemetry/api-logs';
 import { after, NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { sha256, generateSecureToken } from '@/lib/hash';
 import { loggerProvider } from '@/instrumentation';
 import {
@@ -13,7 +12,6 @@ import {
 import type { RecoveryResetPasswordPayload } from '@/types';
 import { getSessionCookieOptions } from '@/lib/session-cookie';
 
-const RATE_LIMIT_WINDOW_SECONDS = 900;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const otelLogger = loggerProvider.getLogger('api.auth.recovery.reset-password');
 
@@ -28,15 +26,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     'unknown';
-
-  if (!checkRateLimit('/api/auth/recovery', 'ip', ip)) {
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
-  }
 
   let body: RecoveryResetPasswordPayload;
   try {

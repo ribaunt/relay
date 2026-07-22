@@ -3,7 +3,6 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
 import { sha256, generateSecureToken } from '@/lib/hash';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { beginSRPServerSession } from '@/lib/crypto/srp';
 import { getPostHogServer, flushPostHog } from '@/lib/posthog-server';
 import { loggerProvider } from '@/instrumentation';
@@ -16,7 +15,6 @@ import {
   sanitizeUserAgent
 } from '@/lib/api-response';
 
-const RATE_LIMIT_WINDOW_SECONDS = 900;
 const otelLogger = loggerProvider.getLogger('api.srp.initiate');
 
 /**
@@ -59,25 +57,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     'unknown';
-
-  if (!checkRateLimit('/api/srp/initiate', 'ip', ip)) {
-    otelLogger.emit({
-      body: 'srp initiate rate limited',
-      severityNumber: SeverityNumber.WARN,
-      attributes: {
-        requestId,
-        route: '/api/srp/initiate',
-        isBrowserExtension: isExtension
-      }
-    });
-
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
-  }
 
   let body: SRPInitiateRequest;
   try {

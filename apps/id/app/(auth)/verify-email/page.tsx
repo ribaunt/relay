@@ -14,7 +14,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import styles from '../auth.module.css';
 
-import { Loading03Icon } from 'hugeicons-react';
+import { Spinner } from '@/components/ui/spinner';
 const CODE_LENGTH = 6;
 
 function VerifyEmailForm() {
@@ -177,7 +177,7 @@ function VerifyEmailForm() {
           className={styles.button}
           disabled={loading || code.length !== CODE_LENGTH}
         >
-          {loading && <Loading03Icon className={styles.spinner} size={18} />}
+          {loading && <Spinner size={18} color="var(--accent-text)" />}
           {loading ? 'Verifying...' : 'Verify email'}
         </button>
       </form>

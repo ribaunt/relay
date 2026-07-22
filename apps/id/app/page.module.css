@@ -24,28 +24,6 @@
   color: var(--text-secondary);
 }
 
-.loadingIcon {
-  color: var(--accent);
-  animation: iosSpinning 1s linear infinite;
-  flex-shrink: 0;
-}
-
-.loadingText {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1;
-}
-
-@keyframes iosSpinning {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 .dashboardCard {
   width: 100%;
   max-width: 620px;

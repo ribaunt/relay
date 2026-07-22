@@ -3,7 +3,6 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
 import { sha256, generate6DigitCode } from '@/lib/hash';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { sendVerificationEmail } from '@/lib/email';
 import { getPostHogServer, flushPostHog } from '@/lib/posthog-server';
 import { loggerProvider } from '@/instrumentation';
@@ -19,7 +18,6 @@ import {
 } from '@/lib/api-response';
 
 const EMAIL_SEND_TIMEOUT_MS = 1200;
-const RATE_LIMIT_WINDOW_SECONDS = 900;
 const otelLogger = loggerProvider.getLogger('api.auth.register');
 
 /**
@@ -66,25 +64,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     'unknown';
-
-  if (!checkRateLimit('/api/auth/register', 'ip', ip)) {
-    otelLogger.emit({
-      body: 'registration rate limited',
-      severityNumber: SeverityNumber.WARN,
-      attributes: {
-        requestId,
-        route: '/api/auth/register',
-        isBrowserExtension: isExtension
-      }
-    });
-
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
-  }
 
   let body: CreateUserPayload & { plainEmail: string };
   try {

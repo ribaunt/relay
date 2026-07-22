@@ -2,24 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
 import { authenticateOIDCAccessToken } from '@/lib/oidc-resource';
-import { checkRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    request.headers.get('x-real-ip') ??
-    'unknown';
-
-  const allowedIp = await checkRateLimit('/api/relay/bootstrap', 'ip', ip);
-  if (!allowedIp) {
-    return NextResponse.json(
-      { error: 'rate_limit', error_description: 'Too many requests. Try again later.' },
-      { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': '900' } }
-    );
-  }
-
   const auth = await authenticateOIDCAccessToken(request, {
     requiredScopes: ['relay.bootstrap'],
     requireFirstPartyClient: true
@@ -34,14 +20,6 @@ export async function GET(request: NextRequest) {
           'Cache-Control': 'no-store'
         }
       }
-    );
-  }
-
-  const allowedAccount = await checkRateLimit('/api/relay/bootstrap', 'account', auth.userId);
-  if (!allowedAccount) {
-    return NextResponse.json(
-      { error: 'rate_limit', error_description: 'Too many requests. Try again later.' },
-      { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': '900' } }
     );
   }
 

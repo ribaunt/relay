@@ -451,21 +451,4 @@
   background: var(--background);
 }
 
-.loadingIcon {
-  color: var(--accent);
-  animation: spinner 1s linear infinite;
-}
 
-.spinner {
-  color: var(--accent-text);
-  animation: spinner 1s linear infinite;
-}
-
-@keyframes spinner {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}

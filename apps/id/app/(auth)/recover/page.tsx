@@ -10,7 +10,8 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { EyeIcon, ViewOffIcon, Loading03Icon } from 'hugeicons-react';
+import { Spinner } from '@/components/ui/spinner';
+import { EyeIcon, ViewOffIcon } from 'hugeicons-react';
 import { toast } from 'sonner';
 import { generateSRPRegistration } from '@/lib/crypto/srp';
 import {
@@ -415,7 +416,7 @@ export default function RecoverPage() {
                 className={styles.button}
                 disabled={loading}
               >
-                {loading && <Loading03Icon className={styles.spinner} size={18} />}
+                {loading && <Spinner size={18} color="var(--accent-text)" />}
                 {loading ? 'Sending code...' : 'Send recovery code'}
               </button>
             </form>
@@ -458,7 +459,7 @@ export default function RecoverPage() {
                 className={styles.button}
                 disabled={loading || code.length !== CODE_LENGTH}
               >
-                {loading && <Loading03Icon className={styles.spinner} size={18} />}
+                {loading && <Spinner size={18} color="var(--accent-text)" />}
                 {loading ? 'Verifying...' : 'Verify code'}
               </button>
             </form>
@@ -538,7 +539,7 @@ export default function RecoverPage() {
                 className={styles.button}
                 disabled={loading}
               >
-                {loading && <Loading03Icon className={styles.spinner} size={18} />}
+                {loading && <Spinner size={18} color="var(--accent-text)" />}
                 {loading ? 'Recovering...' : 'Recover account'}
               </button>
             </form>

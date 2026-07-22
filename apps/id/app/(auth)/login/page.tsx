@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { EyeIcon, ViewOffIcon, Loading03Icon } from 'hugeicons-react';
+import { Spinner } from '@/components/ui/spinner';
+import { EyeIcon, ViewOffIcon } from 'hugeicons-react';
 import { toast } from 'sonner';
 import { generateSRPRegistration } from '@/lib/crypto/srp';
 import {
@@ -29,6 +30,7 @@ import {
   normalizeRecoveryKey
 } from '@/lib/crypto/recovery';
 import { sha256 } from '@/lib/hash';
+import AuthLoadingScreen from '@/components/auth-loading-screen';
 import styles from '../auth.module.css';
 
 type Step = 'email' | 'login' | 'register' | 'recovery';
@@ -71,6 +73,7 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Continue');
   const [error, setError] = useState('');
+  const [showShimmer, setShowShimmer] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState('');
   const [userId, setUserId] = useState('');
   const [copied, setCopied] = useState(false);
@@ -373,6 +376,8 @@ function LoginPageContent() {
       const clientProof = arrayBufferToBase64(bigIntToArrayBuffer(step2.M1));
 
       // SRP Step 3: Complete handshake with server
+      setLoadingText('Verifying credentials...');
+      await nextFrame();
       const completeRes = await fetch('/api/srp/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -391,16 +396,19 @@ function LoginPageContent() {
       }
 
       const completeData = (await completeRes.json()) as SRPCompleteResult;
-      // Capture password for KEK derivation, then clear React state so the
-      // plaintext password does not linger after navigation.
       const passwordForHandoff = password;
-      setPassword('');
+
+      setLoadingText('Decrypting keys...');
+      await nextFrame();
 
       try {
         await attemptMasterKeyHandoff(passwordForHandoff, completeData);
       } catch (handoffError) {
         console.warn('Master-key handoff failed, falling back to encrypted bootstrap only.', handoffError);
       }
+
+      setShowShimmer(true);
+      await nextFrame();
 
       continueAfterAuth();
     } catch (err) {
@@ -560,6 +568,10 @@ function LoginPageContent() {
     setError('');
   }
 
+  if (showShimmer) {
+    return <AuthLoadingScreen />;
+  }
+
   // Step 1: Email entry
   if (step === 'email') {
     return (
@@ -591,7 +603,7 @@ function LoginPageContent() {
             </div>
 
             <button type="submit" className={styles.button} disabled={loading}>
-              {loading && <Loading03Icon className={styles.spinner} size={18} />}
+              {loading && <Spinner size={18} color="var(--accent-text)" />}
               {loading ? 'Checking...' : 'Continue'}
             </button>
           </form>
@@ -664,7 +676,7 @@ function LoginPageContent() {
             </div>
 
             <button type="submit" className={styles.button} disabled={loading}>
-              {loading && <Loading03Icon className={styles.spinner} size={18} />}
+              {loading && <Spinner size={18} color="var(--accent-text)" />}
               {loading ? loadingText : 'Sign in'}
             </button>
           </form>
@@ -819,7 +831,7 @@ function LoginPageContent() {
             </div>
 
             <button type="submit" className={styles.button} disabled={loading}>
-              {loading && <Loading03Icon className={styles.spinner} size={18} />}
+              {loading && <Spinner size={18} color="var(--accent-text)" />}
               {loading ? loadingText : 'Create account'}
             </button>
           </form>

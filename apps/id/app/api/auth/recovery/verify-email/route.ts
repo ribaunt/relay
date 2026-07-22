@@ -3,7 +3,6 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { api } from '@/convex/_generated/api';
 import { getConvexClient } from '@/lib/convex';
 import { generateSecureToken, sha256 } from '@/lib/hash';
-import { checkRateLimit } from '@/lib/rateLimit';
 import { getPostHogServer, flushPostHog } from '@/lib/posthog-server';
 import { loggerProvider } from '@/instrumentation';
 import {
@@ -14,7 +13,6 @@ import {
   isBrowserExtension
 } from '@/lib/api-response';
 
-const RATE_LIMIT_WINDOW_SECONDS = 900;
 const MAX_ATTEMPTS = 10;
 const otelLogger = loggerProvider.getLogger('api.auth.recovery.verify-email');
 
@@ -33,15 +31,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     'unknown';
-
-  if (!checkRateLimit('/api/auth/recovery', 'ip', ip)) {
-    return createErrorResponse(
-      429,
-      'Too many requests. Please try again later.',
-      requestId,
-      { retryAfter: RATE_LIMIT_WINDOW_SECONDS }
-    );
-  }
 
   let body: { email: string; code: string };
   try {

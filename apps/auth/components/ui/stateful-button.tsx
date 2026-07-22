@@ -1,5 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
+import { Spinner } from "./spinner";
 import React from "react";
 import { motion, AnimatePresence, useAnimate } from "motion/react";
 
@@ -102,10 +103,7 @@ export const Button = ({ className, children, ...props }: ButtonProps) => {
 
 const Loader = () => {
   return (
-    <motion.svg
-      animate={{
-        rotate: [0, 360],
-      }}
+    <motion.div
       initial={{
         scale: 0,
         width: 0,
@@ -115,25 +113,10 @@ const Loader = () => {
         scale: 0.5,
         display: "none",
       }}
-      transition={{
-        duration: 0.3,
-        repeat: Infinity,
-        ease: "linear",
-      }}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="loader text-white"
+      className="loader"
     >
-      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-      <path d="M12 3a9 9 0 1 0 9 9" />
-    </motion.svg>
+      <Spinner size={20} color="white" />
+    </motion.div>
   );
 };
 

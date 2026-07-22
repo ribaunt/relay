@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Spinner } from '@/components/ui/spinner';
 import {
   EyeIcon,
-  Loading03Icon,
   Upload02Icon,
   ViewOffIcon
 } from 'hugeicons-react';
@@ -147,7 +147,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
-        <Loading03Icon className={styles.loadingIcon} size={40} />
+        <Spinner size={40} color="var(--accent)" />
       </div>
     );
   }
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                 disabled={savingName}
                 onClick={() => void updateDisplayName()}
               >
-                {savingName && <Loading03Icon className={styles.spinner} size={16} />}
+                {savingName && <Spinner size={16} color="var(--accent-text)" />}
                 {savingName ? 'Saving...' : 'Save name'}
               </button>
             </div>
@@ -620,7 +620,7 @@ export default function SettingsPage() {
                 onClick={() => void requestEmailChange()}
               >
                 {savingEmailRequest && (
-                  <Loading03Icon className={styles.spinner} size={16} />
+                  <Spinner size={16} color="var(--accent-text)" />
                 )}
                 {savingEmailRequest ? 'Sending code...' : 'Send verification code'}
               </button>
@@ -652,7 +652,7 @@ export default function SettingsPage() {
                     onClick={() => void confirmEmailChange()}
                   >
                     {savingEmailConfirm && (
-                      <Loading03Icon className={styles.spinner} size={16} />
+                      <Spinner size={16} color="var(--accent-text)" />
                     )}
                     {savingEmailConfirm ? 'Verifying...' : 'Verify and update email'}
                   </button>
@@ -777,7 +777,7 @@ export default function SettingsPage() {
                 disabled={savingPassword}
                 onClick={() => void changePassword()}
               >
-                {savingPassword && <Loading03Icon className={styles.spinner} size={16} />}
+                {savingPassword && <Spinner size={16} color="var(--accent-text)" />}
                 {savingPassword ? 'Updating...' : 'Update password'}
               </button>
             </div>

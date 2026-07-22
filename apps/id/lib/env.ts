@@ -11,8 +11,6 @@ const envSchema = z.object({
   OIDC_ID_TOKEN_PUBLIC_KEY_PEM: z.string().min(10),
   OIDC_JWKS_ACTIVE_KID: z.string().min(1),
   OIDC_JWKS_PREVIOUS_KID: z.string().optional(),
-  REDIS_URL: z.string().url(),
-  REDIS_TOKEN: z.string().min(1),
   POSTHOG_KEY: z.string().min(1),
   POSTHOG_HOST: z.string().url().default('https://eu.i.posthog.com'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development')
