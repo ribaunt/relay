@@ -31,62 +31,10 @@ import {
   clearMasterKeyVault,
   loadSealedMasterKeyForSubject,
   sealMasterKeyForSubject,
-} from "@/lib/auth/master-key-vault";
+} from "@relay/core";
 
 const HANDOFF_COMPLETE_MESSAGE_TYPE = "relay.masterkey_handoff_complete";
 const IDLE_LOCK_TIMEOUT_MS = 15 * 60 * 1000;
-const LOCAL_MK_KEY = "relay:mk";
-
-async function wrapMasterKeyForLocalStorage(masterKeyHex: string, kekSalt: string): Promise<string | null> {
-  try {
-    const deviceId = localStorage.getItem("relay-vault-device-id") || "default";
-    const salt = new TextEncoder().encode(`relay-local-mk:${kekSalt}:${deviceId}`);
-    const ikm = new TextEncoder().encode("relay-mk-fallback-v1");
-    const keyMaterial = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveKey"]);
-    const aesKey = await crypto.subtle.deriveKey(
-      { name: "HKDF", hash: "SHA-256", salt, info: new TextEncoder().encode("relay-mk-wrap") },
-      keyMaterial,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["encrypt"]
-    );
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      aesKey,
-      new TextEncoder().encode(masterKeyHex)
-    );
-    const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(ciphertext), iv.length);
-    return btoa(String.fromCharCode(...combined));
-  } catch {
-    return null;
-  }
-}
-
-async function unwrapMasterKeyFromLocalStorage(wrapped: string, kekSalt: string): Promise<string | null> {
-  try {
-    const deviceId = localStorage.getItem("relay-vault-device-id") || "default";
-    const combined = Uint8Array.from(atob(wrapped), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const ciphertext = combined.slice(12);
-    const salt = new TextEncoder().encode(`relay-local-mk:${kekSalt}:${deviceId}`);
-    const ikm = new TextEncoder().encode("relay-mk-fallback-v1");
-    const keyMaterial = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveKey"]);
-    const aesKey = await crypto.subtle.deriveKey(
-      { name: "HKDF", hash: "SHA-256", salt, info: new TextEncoder().encode("relay-mk-wrap") },
-      keyMaterial,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["decrypt"]
-    );
-    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ciphertext);
-    return new TextDecoder().decode(plaintext);
-  } catch {
-    return null;
-  }
-}
 
 type MasterKeyContextValue = {
   relay: Relay | null;
@@ -98,7 +46,6 @@ type MasterKeyContextValue = {
   clientSession: RelaySession | null;
   setClientSession: (session: RelaySession | null) => void;
   isUnlocked: boolean;
-  setVaultKekSalt: (kekSalt: string) => void;
 };
 
 const MasterKeyContext = createContext<MasterKeyContextValue | null>(null);
@@ -173,7 +120,6 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
   const identityProviderRef = useRef<AuthIdentityProvider | null>(null);
   const pendingRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const vaultKekSaltRef = useRef<string | null>(null);
 
   useEffect(() => {
     const provider = new AuthIdentityProvider();
@@ -270,44 +216,16 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function restoreFromVault() {
-      let kekSalt = vaultKekSaltRef.current;
-      if (!kekSalt && identityProviderRef.current) {
-        try {
-          const km = await identityProviderRef.current.getKeyMaterial();
-          if (km && km.kekSalt) {
-            kekSalt = km.kekSalt;
-            vaultKekSaltRef.current = kekSalt;
-          }
-        } catch {
-          // failed to get key material
-        }
-      }
-      if (!kekSalt || cancelled) return;
+      if (cancelled) return;
 
       try {
-        const restored = await loadSealedMasterKeyForSubject(sessionSub, kekSalt);
+        const restored = await loadSealedMasterKeyForSubject(sessionSub);
         if (!cancelled && restored && relay) {
           await relay.unlock(hexToBytes(restored));
           return;
         }
       } catch (error) {
-        console.warn("Vault: restoration failed — trying localStorage fallback.", error);
-      }
-
-      if (!cancelled && relay) {
-        try {
-          const wrapped = localStorage.getItem("relay:mk");
-          if (wrapped) {
-            const hexKey = await unwrapMasterKeyFromLocalStorage(wrapped, kekSalt);
-            if (hexKey) {
-              console.info("Vault: restored master key from localStorage fallback");
-              await relay.unlock(hexToBytes(hexKey));
-              return;
-            }
-          }
-        } catch (fallbackError) {
-          console.warn("Vault: localStorage fallback also failed.", fallbackError);
-        }
+        console.warn("Vault: restoration failed.", error);
       }
 
       if (!cancelled) {
@@ -365,7 +283,6 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
             expiresAt: 0,
           };
 
-          vaultKekSaltRef.current = appSession.bootstrap.kekSalt;
           identityProviderRef.current?.notifySessionChange(session);
           startTransition(() => {
             setHandoffStatus("ready");
@@ -391,31 +308,20 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
       setHandoffError(null);
 
       try {
-        const consumed = await consumePayload(state, payload.payload);
-        vaultKekSaltRef.current = consumed.kekSalt;
-        try {
-          await sealMasterKeyForSubject(
-            consumed.session.sub,
-            consumed.masterKeyHex,
-            consumed.kekSalt,
-          );
-        } catch (vaultError) {
-          console.error(
-            "Failed to persist popup handoff key in secure vault:",
-            vaultError,
-          );
-        }
+      const consumed = await consumePayload(state, payload.payload);
+      try {
+        await sealMasterKeyForSubject(
+          consumed.session.sub,
+          consumed.masterKeyHex,
+        );
+      } catch (vaultError) {
+        console.error(
+          "Failed to persist popup handoff key in secure vault:",
+          vaultError,
+        );
+      }
 
-        try {
-          const wrapped = await wrapMasterKeyForLocalStorage(consumed.masterKeyHex, consumed.kekSalt);
-          if (wrapped) {
-            localStorage.setItem("relay:mk", wrapped);
-          }
-        } catch {
-          // localStorage fallback failed — non-critical
-        }
-
-        identityProviderRef.current?.notifySessionChange(consumed.session);
+      identityProviderRef.current?.notifySessionChange(consumed.session);
 
         if (consumed.bootstrap && identityProviderRef.current) {
           await identityProviderRef.current.saveKeyMaterial({
@@ -475,27 +381,16 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
     try {
       const payload = decodePayloadFromCookie(cookieValue);
       const consumed = await consumePayload(state, payload);
-      vaultKekSaltRef.current = consumed.kekSalt;
       try {
         await sealMasterKeyForSubject(
           consumed.session.sub,
           consumed.masterKeyHex,
-          consumed.kekSalt,
         );
       } catch (vaultError) {
         console.error(
           "Failed to persist redirect handoff key in secure vault:",
           vaultError,
         );
-      }
-
-      try {
-        const wrapped = await wrapMasterKeyForLocalStorage(consumed.masterKeyHex, consumed.kekSalt);
-        if (wrapped) {
-          localStorage.setItem("relay:mk", wrapped);
-        }
-      } catch {
-        // localStorage fallback failed — non-critical
       }
 
       identityProviderRef.current?.notifySessionChange(consumed.session);
@@ -537,7 +432,6 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
   const clearDeviceVault = useCallback(async () => {
     try {
       await clearMasterKeyVault();
-      localStorage.removeItem("relay:mk");
       setVaultRestoreLocked(true);
       if (relay) {
         relay.lock();
@@ -555,13 +449,6 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const setVaultKekSalt = useCallback(
-    (kekSalt: string) => {
-      vaultKekSaltRef.current = kekSalt;
-    },
-    [],
-  );
-
   const value = useMemo<MasterKeyContextValue>(
     () => ({
       relay,
@@ -573,7 +460,6 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
       clientSession,
       setClientSession,
       isUnlocked,
-      setVaultKekSalt,
     }),
     [
       relay,
@@ -585,7 +471,6 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
       clientSession,
       setClientSession,
       isUnlocked,
-      setVaultKekSalt,
     ],
   );
 

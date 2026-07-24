@@ -1,6 +1,6 @@
 {
-  "name": "relay-monorepo",
-  "private": true,
+  "name": "relay",
+  "private": false,
   "version": "0.1.0",
   "scripts": {
     "dev": "node scripts/generate-keys.mjs && concurrently -n auth,id -c cyan,magenta \"pnpm dev:auth\" \"pnpm dev:id\"",
@@ -8,6 +8,9 @@
     "dev:id": "pnpm --filter @relay/id dev",
     "dev:setup": "node scripts/generate-keys.mjs",
     "build": "pnpm -r build",
+    "start": "concurrently -n auth,id -c cyan,magenta \"pnpm start:auth\" \"pnpm start:id\"",
+    "start:auth": "pnpm --filter @relay/auth start",
+    "start:id": "pnpm --filter @relay/id start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write \"**/*.{ts,tsx}\""

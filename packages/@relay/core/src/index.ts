@@ -8,6 +8,12 @@ export { StorageAPI } from "./storage";
 export { SearchAPI } from "./search";
 export { IdentityAPI } from "./identity";
 export { SyncManager } from "./sync";
+export {
+  sealMasterKeyForSubject,
+  loadSealedMasterKeyForSubject,
+  deleteSealedMasterKeyForSubject,
+  clearMasterKeyVault,
+} from "./vault-storage";
 
 export type {
   RelayConfig,

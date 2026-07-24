@@ -19,16 +19,15 @@ import {
 import {
   type HandoffMode,
   HANDOFF_QUERY_KEYS,
-  createMasterKeyHandoff,
-  postMasterKeyHandoff,
-  writeMasterKeyBridgeCookie
 } from '@/lib/master-key-handoff';
+import { confirmSession, performClientHandoff } from '@/lib/perform-handoff';
 import {
   generateRecoveryKey,
   encryptMasterKeyWithRecovery,
   normalizeRecoveryKey
 } from '@/lib/crypto/recovery';
 import { sha256 } from '@/lib/hash';
+import { sealMasterKeyForSubject } from '@relay/core';
 import AuthLoadingScreen from '@/components/auth-loading-screen';
 import styles from '../auth.module.css';
 
@@ -105,47 +104,6 @@ function LoginPageContent() {
     router.replace('/');
   };
 
-  async function storeKekForTokenHandoff(
-    kekHex: string,
-    sessionToken?: string
-  ): Promise<boolean> {
-    // Retry a few times in case the session is not yet visible to Convex.
-    const maxAttempts = 3;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      try {
-        const hres = await fetch('/api/relay/handoff-master-key', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            kekHex,
-            ...(sessionToken ? { sessionToken } : {})
-          })
-        });
-        if (hres.ok) {
-          return true;
-        }
-        const body = await hres.text().catch(() => '');
-        console.warn(
-          `handoff-master-key POST returned ${hres.status} (attempt ${attempt + 1}/${maxAttempts})`,
-          body
-        );
-        if (hres.status !== 401 && hres.status !== 503) {
-          return false;
-        }
-      } catch (err) {
-        console.warn(
-          `handoff-master-key POST network error (attempt ${attempt + 1}/${maxAttempts}):`,
-          err
-        );
-      }
-      if (attempt < maxAttempts - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
-      }
-    }
-    return false;
-  }
-
   async function attemptMasterKeyHandoff(
     currentPassword: string,
     completeData: SRPCompleteResult
@@ -170,24 +128,8 @@ function LoginPageContent() {
     }
 
     const sodium = await initSodium();
-    // Derive KEK from the password — never send the password or plaintext
-    // master key to the server. The token endpoint will use this KEK to
-    // decrypt the encrypted master-key blob and hand off the plaintext key.
     const kek = await deriveKEK(currentPassword, sodium.from_base64(completeData.kekSalt));
 
-    const kekHex = Array.from(kek)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    const stored = await storeKekForTokenHandoff(kekHex, completeData.sessionToken);
-    if (!stored) {
-      console.warn(
-        'Failed to store KEK for token handoff; OAuth token exchange will not include plaintext master key'
-      );
-    }
-
-    // Also attempt client-side handoff (popup postMessage / bridge cookie) for
-    // flows that can receive the key without waiting on the token endpoint.
     const masterKey = await decryptMasterKey(
       completeData.encryptedMasterKey,
       completeData.iv,
@@ -195,39 +137,17 @@ function LoginPageContent() {
     );
 
     try {
-      const sessionRes = await fetch('/api/session/me', {
-        credentials: 'same-origin',
-        cache: 'no-store'
-      });
-
-      if (!sessionRes.ok) {
-        throw new Error(`Session /me returned ${sessionRes.status}`);
+      const session = await confirmSession();
+      if (!session) {
+        throw new Error('Session not available after SRP completion');
       }
 
-      const sessionData = (await sessionRes.json()) as {
-        authenticated: boolean;
-        user?: { id?: string };
-      };
+      const masterKeyHex = Array.from(masterKey)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
 
-      const sub = sessionData.user?.id;
-      if (!sessionData.authenticated || typeof sub !== 'string') {
-        throw new Error(`Session /me invalid: authenticated=${sessionData.authenticated}, sub=${typeof sub}`);
-      }
-
-      const payload = await createMasterKeyHandoff({
-        issuer: window.location.origin,
-        audience: handoffRequest.clientId,
-        sub,
-        nonce: handoffRequest.nonce,
-        receiverPublicKey: handoffRequest.publicKey,
-        masterKey
-      });
-
-      if (handoffRequest.mode === 'redirect') {
-        writeMasterKeyBridgeCookie(payload);
-      } else {
-        postMasterKeyHandoff(payload, handoffRequest.origin);
-      }
+      await sealMasterKeyForSubject(session.sub, masterKeyHex);
+      await performClientHandoff(masterKeyHex, handoffRequest, session.sub);
     } finally {
       masterKey.fill(0);
       kek.fill(0);

@@ -26,13 +26,9 @@ function isProductionEnvironment(): boolean {
 
 function getRequired(name: string, fallback?: string): string {
   const value = process.env[name]
-  if (!value) {
-    if (!isProductionEnvironment() && fallback) {
-      return fallback
-    }
-    throw new Error(`Missing required environment variable: ${name}`)
-  }
-  return value
+  if (value) return value
+  if (fallback !== undefined) return fallback
+  throw new Error(`Missing required environment variable: ${name}`)
 }
 
 function trimTrailingSlash(value: string): string {

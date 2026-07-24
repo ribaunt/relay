@@ -85,18 +85,20 @@ export class StorageAPI {
     this.syncManager.enqueue("upload", path, totalSize, async (_, updateProgress) => {
       let bytesUploaded = 0;
       for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        if (!chunk) continue;
         const chunkPath = chunks.length > 1 ? `${path}/chunk_${i}` : path;
-        await this.provider.upload(chunkPath, chunks[i].data);
+        await this.provider.upload(chunkPath, chunk.data);
 
         const remote = await this.provider.download(chunkPath);
         const remoteChecksum = await computeChecksum(remote);
-        if (remoteChecksum !== chunks[i].checksum) {
+        if (remoteChecksum !== chunk.checksum) {
           throw new Error(
             `Checksum mismatch for chunk ${i} of ${path}`,
           );
         }
 
-        bytesUploaded += chunks[i].data.length;
+        bytesUploaded += chunk.data.length;
         updateProgress(bytesUploaded);
       }
 

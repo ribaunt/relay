@@ -1,7 +1,8 @@
 const VAULT_DB_NAME = "relay-secure-vault"
-const VAULT_DB_VERSION = 5
-const VAULT_STORE = "vault"
-const DEVICE_ID_KEY = "relay-vault-device-id"
+const VAULT_DB_VERSION = 6
+const WRAPPING_KEY_STORE = "wrapping-keys"
+const SEALED_KEY_STORE = "sealed-keys"
+const WRAPPING_KEY_ID = "device-wrapping-key"
 
 type SealedMasterKeyRecord = {
   type: "sealed-master-key"
@@ -22,8 +23,15 @@ function openVaultDb(): Promise<IDBDatabase> {
     request.onerror = () => reject(new Error("Failed to open secure vault"))
     request.onupgradeneeded = () => {
       const db = request.result
-      if (!db.objectStoreNames.contains(VAULT_STORE)) {
-        db.createObjectStore(VAULT_STORE)
+      const oldStores = db.objectStoreNames
+      if (oldStores.contains("vault")) {
+        db.deleteObjectStore("vault")
+      }
+      if (!oldStores.contains(WRAPPING_KEY_STORE)) {
+        db.createObjectStore(WRAPPING_KEY_STORE)
+      }
+      if (!oldStores.contains(SEALED_KEY_STORE)) {
+        db.createObjectStore(SEALED_KEY_STORE)
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -54,83 +62,65 @@ function idbDelete(store: IDBObjectStore, key: IDBValidKey): Promise<void> {
   })
 }
 
+function idbClear(store: IDBObjectStore): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = store.clear()
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error ?? new Error("Vault clear failed"))
+  })
+}
+
 function getSealedKeyId(sub: string): string {
   return `sealed-master-key:${sub}`
 }
 
-async function readFromVault<T>(db: IDBDatabase, key: IDBValidKey): Promise<T | undefined> {
-  const tx = db.transaction(VAULT_STORE, "readonly")
-  const store = tx.objectStore(VAULT_STORE)
-  const value = await idbGet<T>(store, key)
+async function runTx<T>(
+  db: IDBDatabase,
+  stores: string[],
+  mode: IDBTransactionMode,
+  fn: (transaction: IDBTransaction) => Promise<T>,
+): Promise<T> {
+  const tx = db.transaction(stores, mode)
+  const result = await fn(tx)
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error ?? new Error("Vault transaction failed"))
     tx.onabort = () => reject(tx.error ?? new Error("Vault transaction aborted"))
   })
-  return value
+  return result
 }
 
-async function writeToVault(db: IDBDatabase, key: IDBValidKey, value: unknown): Promise<void> {
-  const tx = db.transaction(VAULT_STORE, "readwrite")
-  const store = tx.objectStore(VAULT_STORE)
-  await idbPut(store, value, key)
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error("Vault transaction failed"))
-    tx.onabort = () => reject(tx.error ?? new Error("Vault transaction aborted"))
+async function getOrCreateWrappingKey(db: IDBDatabase): Promise<CryptoKey> {
+  const existing = await runTx(db, [WRAPPING_KEY_STORE], "readonly", async (tx) => {
+    const store = tx.objectStore(WRAPPING_KEY_STORE)
+    return idbGet<CryptoKey>(store, WRAPPING_KEY_ID)
   })
-}
 
-async function deleteFromVault(db: IDBDatabase, key: IDBValidKey): Promise<void> {
-  const tx = db.transaction(VAULT_STORE, "readwrite")
-  const store = tx.objectStore(VAULT_STORE)
-  await idbDelete(store, key)
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error("Vault transaction failed"))
-    tx.onabort = () => reject(tx.error ?? new Error("Vault transaction aborted"))
-  })
-}
-
-async function deriveWrappingKey(kekSalt: string): Promise<CryptoKey> {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY)
-  if (!deviceId) {
-    deviceId = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
-    localStorage.setItem(DEVICE_ID_KEY, deviceId)
+  if (existing) {
+    return existing
   }
 
-  const salt = new TextEncoder().encode(`relay-vault-salt:${kekSalt}:${deviceId}`)
-  const ikm = new TextEncoder().encode("relay-vault-key-v1")
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    ikm,
-    { name: "HKDF" },
-    false,
-    ["deriveKey"],
-  )
-
-  return crypto.subtle.deriveKey(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt,
-      info: new TextEncoder().encode("relay-master-key-wrap"),
-    },
-    keyMaterial,
+  const key = await crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },
     false,
     ["encrypt", "decrypt"],
   )
+
+  await runTx(db, [WRAPPING_KEY_STORE], "readwrite", async (tx) => {
+    const store = tx.objectStore(WRAPPING_KEY_STORE)
+    await idbPut(store, key, WRAPPING_KEY_ID)
+  })
+
+  return key
 }
 
-export async function sealMasterKeyForSubject(sub: string, masterKeyHex: string, kekSalt: string): Promise<void> {
+export async function sealMasterKeyForSubject(sub: string, masterKeyHex: string): Promise<void> {
   const plaintext = hexToBytes(masterKeyHex)
   const iv = crypto.getRandomValues(new Uint8Array(12))
 
   const db = await openVaultDb()
   try {
-    const wrappingKey = await deriveWrappingKey(kekSalt)
+    const wrappingKey = await getOrCreateWrappingKey(db)
     const ciphertext = await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
@@ -148,21 +138,28 @@ export async function sealMasterKeyForSubject(sub: string, masterKeyHex: string,
       storedAt: Date.now(),
     }
 
-    await writeToVault(db, getSealedKeyId(sub), record)
+    await runTx(db, [SEALED_KEY_STORE], "readwrite", async (tx) => {
+      const store = tx.objectStore(SEALED_KEY_STORE)
+      await idbPut(store, record, getSealedKeyId(sub))
+    })
   } finally {
     db.close()
   }
 }
 
-export async function loadSealedMasterKeyForSubject(sub: string, kekSalt: string): Promise<string | null> {
+export async function loadSealedMasterKeyForSubject(sub: string): Promise<string | null> {
   const db = await openVaultDb()
   try {
-    const record = await readFromVault<SealedMasterKeyRecord>(db, getSealedKeyId(sub))
+    const record = await runTx(db, [SEALED_KEY_STORE], "readonly", async (tx) => {
+      const store = tx.objectStore(SEALED_KEY_STORE)
+      return idbGet<SealedMasterKeyRecord>(store, getSealedKeyId(sub))
+    })
+
     if (!record || record.type !== "sealed-master-key" || record.sub !== sub) {
       return null
     }
 
-    const wrappingKey = await deriveWrappingKey(kekSalt)
+    const wrappingKey = await getOrCreateWrappingKey(db)
     const plaintext = await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
@@ -183,19 +180,16 @@ export async function loadSealedMasterKeyForSubject(sub: string, kekSalt: string
 export async function deleteSealedMasterKeyForSubject(sub: string): Promise<void> {
   const db = await openVaultDb()
   try {
-    await deleteFromVault(db, getSealedKeyId(sub))
+    await runTx(db, [SEALED_KEY_STORE], "readwrite", async (tx) => {
+      const store = tx.objectStore(SEALED_KEY_STORE)
+      await idbDelete(store, getSealedKeyId(sub))
+    })
   } finally {
     db.close()
   }
 }
 
 export async function clearMasterKeyVault(): Promise<void> {
-  try {
-    localStorage.removeItem(DEVICE_ID_KEY)
-  } catch {
-    // localStorage may be unavailable
-  }
-
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(VAULT_DB_NAME)
     request.onsuccess = () => resolve()

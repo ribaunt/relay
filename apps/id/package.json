@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "convex dev --once && next build",
-    "start": "next start",
+    "start": "next start --port 3001",
     "setup:relay-auth-client": "npx convex run oauthClients:ensureRelayAuthClient"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "@opentelemetry/resources": "^2.6.0",
     "@opentelemetry/sdk-logs": "^0.213.0",
     "@posthog/nextjs-config": "^1.7.6",
+    "@relay/core": "workspace:*",
     "@relay/crypto": "workspace:*",
     "@relay/services": "workspace:*",
     "@relay/types": "workspace:*",

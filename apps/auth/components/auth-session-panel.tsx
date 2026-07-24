@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 import { useMasterKey } from "@/components/master-key-provider"
 import { decryptMasterKeyWithPassword } from "@/lib/auth/browser-crypto"
-import { sealMasterKeyForSubject } from "@/lib/auth/master-key-vault"
+import { sealMasterKeyForSubject } from "@relay/core"
 import type { PublicSession } from "@/lib/auth/types"
 
 type AuthSessionPanelProps = {
@@ -33,7 +33,6 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
     clientSession,
     setClientSession,
     isUnlocked,
-    setVaultKekSalt,
   } = useMasterKey()
   const vaultClearTriggered = useRef(false)
   const [password, setPassword] = useState("")
@@ -54,7 +53,6 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
 
   useEffect(() => {
     if (session) {
-      setVaultKekSalt(session.bootstrap.kekSalt)
       setClientSession({
         sub: session.sub,
         name: session.name,
@@ -63,7 +61,7 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
         expiresAt: 0,
       })
     }
-  }, [session, setClientSession, setVaultKekSalt])
+  }, [session, setClientSession])
 
   const bootstrapSummary = useMemo(() => {
     if (!session) return null
@@ -92,7 +90,7 @@ export default function AuthSessionPanel({ session, authError, loggedOut }: Auth
         await relay.unlock(hexToBytes(result))
       }
       try {
-        await sealMasterKeyForSubject(session.sub, result, session.bootstrap.kekSalt)
+        await sealMasterKeyForSubject(session.sub, result)
         setVaultMessage("Master key decrypted and stored in secure device vault.")
       } catch {
         setVaultMessage("Master key decrypted in memory only — vault storage unavailable.")

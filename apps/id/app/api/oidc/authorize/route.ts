@@ -366,6 +366,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(loginUrl.toString());
     }
 
+    const handoffDone = searchParams.get('relay_handoff_done');
+    if (handoff.value && !handoffDone) {
+      const handoffUrl = new URL('/oauth/handoff-silent', request.url);
+      handoffUrl.searchParams.set('returnTo', `${request.nextUrl.pathname}${request.nextUrl.search}&relay_handoff_done=1`);
+      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.mode, handoff.value.mode);
+      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.nonce, handoff.value.nonce);
+      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.publicKey, handoff.value.publicKey);
+      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.origin, handoff.value.origin);
+      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.clientId, handoff.value.clientId);
+      return NextResponse.redirect(handoffUrl.toString());
+    }
+
     if (client.is_first_party !== true) {
       await captureOIDCAuthorizeDenied(requestId, clientId, 'consent_required');
       await flushPostHog();
