@@ -25,7 +25,7 @@ export async function GET() {
         userinfo_endpoint: `${issuer}/api/oidc/userinfo`,
         revocation_endpoint: `${issuer}/api/oidc/revoke`,
         end_session_endpoint: `${issuer}/api/oidc/logout-all`,
-        jwks_uri: `${issuer}/.well-known/jwks.json`,
+        jwks_uri: `${issuer}/api/oidc/jwks`,
         response_types_supported: ['code'],
         subject_types_supported: ['public'],
         grant_types_supported: ['authorization_code', 'refresh_token'],

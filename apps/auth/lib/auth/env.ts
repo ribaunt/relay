@@ -67,7 +67,7 @@ function readAuthEnv(): AuthEnv {
     clientSecret: process.env.RELAY_OIDC_CLIENT_SECRET,
     scopes: process.env.RELAY_OIDC_SCOPES ?? "openid profile relay.bootstrap",
     redirectUri: `${appBaseUrl}/oauth/callback`,
-    discoveryUrl: `${issuer}/.well-known/openid-configuration`,
+    discoveryUrl: `${issuer}/api/oidc/discovery`,
     bootstrapEndpoint: `${issuer}/api/relay/bootstrap`,
     logoutAllEndpoint: `${issuer}/api/oidc/logout-all`,
     popupCompletePath: process.env.RELAY_POPUP_COMPLETE_PATH ?? "/oauth/popup-complete",

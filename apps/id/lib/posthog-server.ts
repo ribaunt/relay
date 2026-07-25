@@ -169,7 +169,7 @@ export async function captureAuthServiceStarted(issuer: string, env: string): Pr
 export async function captureOIDCDiscoveryRequested(requestId: string, status: string): Promise<void> {
   await captureAuthEvent('oidc_discovery_requested', {
     requestId,
-    route: '/.well-known/openid-configuration',
+    route: '/api/oidc/discovery',
     env: process.env.NODE_ENV || 'unknown',
     status
   }, { sample: 0.05 });
@@ -181,7 +181,7 @@ export async function captureOIDCDiscoveryRequested(requestId: string, status: s
 export async function captureOIDCJWKSRequested(requestId: string, keyCount: number, status: string): Promise<void> {
   await captureAuthEvent('oidc_jwks_requested', {
     requestId,
-    route: '/.well-known/jwks.json',
+    route: '/api/oidc/jwks',
     env: process.env.NODE_ENV || 'unknown',
     keyCount,
     status
