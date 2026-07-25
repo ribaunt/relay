@@ -101,6 +101,7 @@ export class AuthIdentityProvider implements IdentityProvider {
         sub: data.session.sub,
         name: typeof data.session.name === "string" ? data.session.name : undefined,
         picture: typeof data.session.picture === "string" ? data.session.picture : undefined,
+        email: typeof data.session.bootstrap?.email === "string" ? data.session.bootstrap.email : undefined,
         emailVerified: typeof data.session.emailVerified === "boolean" ? data.session.emailVerified : undefined,
         expiresAt: 0,
       };

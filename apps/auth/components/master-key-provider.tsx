@@ -96,15 +96,17 @@ async function consumePayload(
 
   const masterKeyHex = await unwrapMasterKeyFromPayload(payload, state);
 
+  const bootstrap = appSession.bootstrap;
+
   const session: RelaySession = {
     sub: appSession.sub,
     name: appSession.name,
     picture: appSession.picture,
+    email: bootstrap.email,
     emailVerified: appSession.emailVerified,
     expiresAt: 0,
   };
 
-  const bootstrap = appSession.bootstrap;
   return { masterKeyHex, session, kekSalt: bootstrap.kekSalt, bootstrap };
 }
 
@@ -279,6 +281,7 @@ export function MasterKeyProvider({ children }: { children: ReactNode }) {
             sub: appSession.sub,
             name: appSession.name,
             picture: appSession.picture,
+            email: appSession.bootstrap?.email,
             emailVerified: appSession.emailVerified,
             expiresAt: 0,
           };

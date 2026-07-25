@@ -258,3 +258,31 @@ export type AuditEventType =
   | "recovery_email_verified"
   | "recovery_phrase_verified"
   | "recovery_completed"
+
+export type OtpType = "TOTP" | "HOTP"
+
+export type TotpAlgorithm = "SHA1" | "SHA256" | "SHA512"
+
+export type OtpEntryPlaintext = {
+  type: OtpType
+  issuer: string
+  accountName: string
+  secret: string
+  algorithm: TotpAlgorithm
+  digits: number
+  period: number
+  counter?: number
+  icon: string | null
+  color: string | null
+  notes: string | null
+  favorite: boolean
+  site: string | null
+}
+
+export type StoredEntry = {
+  id: string
+  version: number
+  ciphertext: string
+  iv: string
+  updatedAt: number
+}

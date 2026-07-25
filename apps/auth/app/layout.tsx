@@ -1,6 +1,8 @@
 import "./globals.css"
 import { MasterKeyProvider } from "@/components/master-key-provider"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthenticatorProvider } from "@/components/authenticator-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 export default function RootLayout({
@@ -12,7 +14,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={cn("antialiased", "font-sans")}>
       <body>
         <ThemeProvider>
-          <MasterKeyProvider>{children}</MasterKeyProvider>
+          <TooltipProvider>
+            <MasterKeyProvider>
+              <AuthenticatorProvider>{children}</AuthenticatorProvider>
+            </MasterKeyProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

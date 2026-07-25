@@ -217,5 +217,20 @@ export default defineSchema({
     user_id: v.id('users'),
     global_revoked_after: v.number(),
     updated_at: v.number()
-  }).index('by_user', ['user_id'])
+  }).index('by_user', ['user_id']),
+
+  handoff_tickets: defineTable({
+    ticket_hash: v.string(),
+    user_id: v.id('users'),
+    mode: v.union(v.literal('popup'), v.literal('redirect')),
+    nonce: v.string(),
+    public_key: v.string(),
+    origin: v.string(),
+    client_id: v.string(),
+    redeemed_at: v.optional(v.number()),
+    expires_at: v.number(),
+    created_at: v.number()
+  })
+    .index('by_ticket_hash', ['ticket_hash'])
+    .index('by_user', ['user_id'])
 });

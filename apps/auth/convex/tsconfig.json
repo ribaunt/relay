@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": true,
+    "target": "ESNext",
+    "lib": ["ES2021", "dom"],
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "noEmit": true,
+    "outDir": "./node_modules/.cache/convex"
+  },
+  "include": ["./**/*"],
+  "exclude": ["./_generated"]
+}

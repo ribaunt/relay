@@ -4,6 +4,7 @@ export const KDF_CONTEXT = {
   VAULT: "vault",
   PHOTOS: "photos",
   PASSWORDS: "passwords",
+  AUTH: "auth",
 } as const
 
 export type KdfContext = (typeof KDF_CONTEXT)[keyof typeof KDF_CONTEXT]

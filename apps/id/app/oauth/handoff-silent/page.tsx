@@ -6,7 +6,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { EyeIcon, ViewOffIcon } from 'hugeicons-react';
 import { toast } from 'sonner';
 import { deriveKEK, decryptMasterKey, initSodium } from '@/lib/crypto/keys';
-import { HANDOFF_QUERY_KEYS, type HandoffMode } from '@/lib/master-key-handoff';
+import { type HandoffMode } from '@/lib/master-key-handoff';
 import { confirmSession, performClientHandoff } from '@/lib/perform-handoff';
 import { sealMasterKeyForSubject, loadSealedMasterKeyForSubject } from '@relay/core';
 import AuthLoadingScreen from '@/components/auth-loading-screen';
@@ -20,25 +20,14 @@ type HandoffRequest = {
   mode: HandoffMode;
 };
 
-function parseHandoffRequest(searchParams: URLSearchParams): HandoffRequest | null {
-  const mode = searchParams.get(HANDOFF_QUERY_KEYS.mode);
-  const nonce = searchParams.get(HANDOFF_QUERY_KEYS.nonce);
-  const publicKey = searchParams.get(HANDOFF_QUERY_KEYS.publicKey);
-  const origin = searchParams.get(HANDOFF_QUERY_KEYS.origin);
-  const clientId = searchParams.get(HANDOFF_QUERY_KEYS.clientId);
-
-  if (
-    (mode !== 'popup' && mode !== 'redirect') ||
-    !nonce || !publicKey || !origin || !clientId
-  ) {
-    return null;
-  }
-
-  return { mode, nonce, publicKey, origin, clientId };
-}
+type RedeemState =
+  | { status: 'loading' }
+  | { status: 'redeemed'; handoff: HandoffRequest }
+  | { status: 'error'; message: string };
 
 function HandoffSilentContent() {
   const searchParams = useSearchParams();
+  const [redeemState, setRedeemState] = useState<RedeemState>({ status: 'loading' });
   const [status, setStatus] = useState<'loading' | 'password' | 'done'>('loading');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,14 +35,69 @@ function HandoffSilentContent() {
   const [error, setError] = useState('');
 
   const returnTo = searchParams.get('returnTo') || '/';
-  const handoff = parseHandoffRequest(searchParams);
+  const ticket = searchParams.get('ticket');
 
   useEffect(() => {
     void initSodium();
   }, []);
 
   useEffect(() => {
-    if (!handoff) return;
+    if (!ticket) {
+      setRedeemState({ status: 'error', message: 'This connection link is invalid or has expired.' });
+      return;
+    }
+
+    let cancelled = false;
+
+    async function redeemTicket() {
+      try {
+        const response = await fetch('/api/relay/handoff/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          cache: 'no-store',
+          body: JSON.stringify({ ticket }),
+        });
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string };
+          setRedeemState({
+            status: 'error',
+            message: data.error === 'already_redeemed' || data.error === 'expired'
+              ? 'This connection link has already been used or has expired. Please try connecting again from Relay Auth.'
+              : 'This connection link is invalid. Please try connecting again from Relay Auth.',
+          });
+          return;
+        }
+
+        const data = (await response.json()) as {
+          ok: boolean;
+          handoff: HandoffRequest;
+        };
+
+        if (!cancelled) {
+          setRedeemState({ status: 'redeemed', handoff: data.handoff });
+        }
+      } catch {
+        if (!cancelled) {
+          setRedeemState({
+            status: 'error',
+            message: 'Failed to verify connection. Please try again.',
+          });
+        }
+      }
+    }
+
+    void redeemTicket();
+    return () => { cancelled = true; };
+  }, [ticket]);
+
+  useEffect(() => {
+    if (redeemState.status !== 'redeemed') return;
+
+    const handoff = redeemState.handoff;
     let cancelled = false;
 
     async function trySilentUnlock() {
@@ -68,7 +112,7 @@ function HandoffSilentContent() {
         if (cancelled) return;
 
         if (masterKeyHex) {
-          await performClientHandoff(masterKeyHex, handoff!, session.sub);
+          await performClientHandoff(masterKeyHex, handoff, session.sub);
           if (!cancelled) {
             setStatus('done');
             window.location.assign(returnTo);
@@ -86,12 +130,13 @@ function HandoffSilentContent() {
 
     void trySilentUnlock();
     return () => { cancelled = true; };
-  }, [handoff, returnTo]);
+  }, [redeemState, returnTo]);
 
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!handoff) return;
+    if (redeemState.status !== 'redeemed') return;
 
+    const handoff = redeemState.handoff;
     setError('');
     setLoading(true);
 
@@ -142,17 +187,17 @@ function HandoffSilentContent() {
     }
   }
 
-  if (!handoff) {
+  if (redeemState.status === 'error') {
     return (
       <div className={styles.container}>
         <div className={styles.card}>
-          <p>Invalid handoff parameters.</p>
+          <p>{redeemState.message}</p>
         </div>
       </div>
     );
   }
 
-  if (status === 'loading' || status === 'done') {
+  if (redeemState.status === 'loading' || status === 'loading' || status === 'done') {
     return <AuthLoadingScreen />;
   }
 

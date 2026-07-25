@@ -21,6 +21,7 @@ export interface RelaySession {
   sub: string;
   name?: string;
   picture?: string;
+  email?: string;
   emailVerified?: boolean;
   expiresAt: number;
 }

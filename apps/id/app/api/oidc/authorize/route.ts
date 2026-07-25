@@ -11,6 +11,7 @@ import {
   getPostHogServer
 } from '@/lib/posthog-server';
 import { HANDOFF_QUERY_KEYS, HANDOFF_SCOPE } from '@/lib/master-key-handoff';
+import { sha256, generateSecureToken } from '@/lib/hash';
 
 type ParsedHandoffParams = {
   mode: 'popup' | 'redirect';
@@ -368,13 +369,24 @@ export async function GET(request: NextRequest) {
 
     const handoffDone = searchParams.get('relay_handoff_done');
     if (handoff.value && !handoffDone) {
+      const rawTicket = generateSecureToken(32);
+      const ticketHash = await sha256(rawTicket);
+
+      await withStep('handoff_ticket.create', () =>
+        getConvexClient().mutation(api.handoffTickets.create, {
+          ticketHash,
+          userId: session.userId,
+          mode: handoff.value!.mode,
+          nonce: handoff.value!.nonce,
+          publicKey: handoff.value!.publicKey,
+          origin: handoff.value!.origin,
+          clientId: handoff.value!.clientId
+        })
+      );
+
       const handoffUrl = new URL('/oauth/handoff-silent', request.url);
+      handoffUrl.searchParams.set('ticket', rawTicket);
       handoffUrl.searchParams.set('returnTo', `${request.nextUrl.pathname}${request.nextUrl.search}&relay_handoff_done=1`);
-      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.mode, handoff.value.mode);
-      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.nonce, handoff.value.nonce);
-      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.publicKey, handoff.value.publicKey);
-      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.origin, handoff.value.origin);
-      handoffUrl.searchParams.set(HANDOFF_QUERY_KEYS.clientId, handoff.value.clientId);
       return NextResponse.redirect(handoffUrl.toString());
     }
 
