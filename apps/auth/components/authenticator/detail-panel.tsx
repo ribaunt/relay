@@ -21,6 +21,8 @@ import { useFavicon } from "@/lib/hooks/use-favicon"
 import { useSettings } from "@/lib/hooks/use-settings"
 import { useAuthenticator } from "@/components/authenticator-provider"
 import CountdownRing from "./countdown-ring"
+import TagBadge from "./tag-badge"
+import TagManagerUi from "./tag-manager-ui"
 
 type DetailPanelProps = {
   entry: OtpEntry | null
@@ -36,7 +38,7 @@ export default function DetailPanel({
   onToggleFavorite,
 }: DetailPanelProps) {
   const isDesktop = useIsDesktop()
-  const { editEntry, deleteEntry, entries } = useAuthenticator()
+  const { editEntry, deleteEntry, entries, tags } = useAuthenticator()
   const { settings } = useSettings()
   const [copied, setCopied] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -46,6 +48,7 @@ export default function DetailPanel({
   const [secret, setSecret] = useState("")
   const [notes, setNotes] = useState("")
   const [site, setSite] = useState("")
+  const [editTagIds, setEditTagIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [faviconFailed, setFaviconFailed] = useState(false)
@@ -84,6 +87,7 @@ export default function DetailPanel({
     setSecret(entry.plaintext.secret)
     setNotes(entry.plaintext.notes ?? "")
     setSite(entry.plaintext.site ?? "")
+    setEditTagIds(entry.plaintext.tagIds ?? [])
     setError(null)
     setEditOpen(true)
   }
@@ -111,6 +115,7 @@ export default function DetailPanel({
         secret: secret || undefined,
         notes: notes || null,
         site: site || null,
+        tagIds: editTagIds,
       }
       await editEntry(entry.id, input)
       setEditOpen(false)
@@ -150,6 +155,7 @@ export default function DetailPanel({
     setSecret(entry.plaintext.secret)
     setNotes(entry.plaintext.notes ?? "")
     setSite(entry.plaintext.site ?? "")
+    setEditTagIds(entry.plaintext.tagIds ?? [])
   }, [entry, editOpen])
 
   const cachedFaviconUrl = useFavicon(entry?.plaintext?.site)
@@ -251,6 +257,19 @@ export default function DetailPanel({
           </div>
         </div>
 
+        {(entry.plaintext.tagIds?.length > 0) && (
+          <div className="mt-4">
+            <h4 className="mb-1.5 text-xs font-medium text-muted-foreground">Tags</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {entry.plaintext.tagIds.map((tagId) => {
+                const tag = tags.find((t) => t.id === tagId)
+                if (!tag) return null
+                return <TagBadge key={tag.id} name={tag.name} color={tag.color} />
+              })}
+            </div>
+          </div>
+        )}
+
         {entry.plaintext.notes && (
           <div className="mt-4">
             <h4 className="mb-1 text-xs font-medium text-muted-foreground">Notes</h4>
@@ -349,6 +368,10 @@ export default function DetailPanel({
             placeholder="github.com"
           />
         </div>
+        <TagManagerUi
+          selectedTagIds={editTagIds}
+          onChange={setEditTagIds}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>

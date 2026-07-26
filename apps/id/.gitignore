@@ -47,3 +47,4 @@ convex/betterAuth/_generated/
 
 # pem keys
 keys/
+.env*.local

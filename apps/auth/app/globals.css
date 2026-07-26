@@ -130,6 +130,14 @@
     }
 }
 
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @keyframes relay-logo-shimmer {
   0% {
     background-position: 160% 50%;

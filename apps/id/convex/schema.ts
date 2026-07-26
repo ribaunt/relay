@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 export default defineSchema({
   users: defineTable({
     // identity
-    email: v.string(),
+    email: v.optional(v.string()),
     email_hash: v.string(), // SHA-256 of lowercased email, for lookup
     email_verified: v.boolean(),
 

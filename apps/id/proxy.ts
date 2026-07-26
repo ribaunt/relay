@@ -35,6 +35,8 @@ const PUBLIC_PATHS = new Set([
   '/api/oidc/token',
   '/api/oidc/revoke',
   '/api/oidc/userinfo',
+  '/api/oidc/discovery',
+  '/api/oidc/jwks',
   '/api/relay/bootstrap'
 ]);
 

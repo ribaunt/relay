@@ -7,6 +7,7 @@ import type { OtpEntry, AddEntryInput, EditEntryInput } from "./types"
 import { uuidv7 } from "uuidv7"
 
 const CURRENT_VERSION = 1
+const RESERVED_IDS = new Set(["__tag_store__"])
 
 export class EntryManager {
   private decrypted = new Map<string, OtpEntry>()
@@ -55,16 +56,38 @@ export class EntryManager {
   private async decrypt(ciphertext: string, iv: string): Promise<OtpEntryPlaintext> {
     if (!this.subkey) throw new Error("EntryManager not initialized")
     const json = await decryptWithMasterKey(ciphertext, iv, this.subkey)
-    return JSON.parse(json) as OtpEntryPlaintext
+    const parsed = JSON.parse(json)
+    return {
+      type: parsed.type ?? "TOTP",
+      issuer: parsed.issuer ?? "",
+      accountName: parsed.accountName ?? "",
+      secret: parsed.secret ?? "",
+      algorithm: parsed.algorithm ?? "SHA1",
+      digits: parsed.digits ?? 6,
+      period: parsed.period ?? 30,
+      counter: parsed.counter,
+      icon: parsed.icon ?? null,
+      color: parsed.color ?? null,
+      notes: parsed.notes ?? null,
+      favorite: parsed.favorite ?? false,
+      site: parsed.site ?? null,
+      tagIds: parsed.tagIds ?? [],
+    } as OtpEntryPlaintext
   }
 
   private async decryptAndCache(stored: StoredEntry): Promise<void> {
     try {
       const plaintext = await this.decrypt(stored.ciphertext, stored.iv)
+      if (!plaintext.secret || !plaintext.issuer || !plaintext.accountName) {
+        return
+      }
       this.decrypted.set(stored.id, {
         id: stored.id,
         version: stored.version,
-        plaintext,
+        plaintext: {
+          ...plaintext,
+          tagIds: plaintext.tagIds ?? [],
+        },
         updatedAt: stored.updatedAt,
       })
     } catch (error) {
@@ -100,6 +123,7 @@ export class EntryManager {
       notes: input.notes ?? null,
       favorite: false,
       site: input.site ?? null,
+      tagIds: input.tagIds ?? [],
     }
 
     const { ciphertext, iv } = await this.encrypt(plaintext)
@@ -148,6 +172,7 @@ export class EntryManager {
       icon: input.icon !== undefined ? input.icon : existing.plaintext.icon,
       color: input.color !== undefined ? input.color : existing.plaintext.color,
       site: input.site !== undefined ? input.site : existing.plaintext.site,
+      tagIds: input.tagIds !== undefined ? input.tagIds : (existing.plaintext.tagIds ?? []),
     }
 
     const { ciphertext, iv } = await this.encrypt(updated)
@@ -216,6 +241,7 @@ export class EntryManager {
       const remoteEntries = await this.provider.list(this.userId)
 
       for (const remote of remoteEntries) {
+        if (RESERVED_IDS.has(remote.id)) continue
         const existing = this.decrypted.get(remote.id)
         if (!existing || remote.updatedAt > existing.updatedAt) {
           await this.decryptAndCache(remote)
@@ -223,7 +249,9 @@ export class EntryManager {
         }
       }
 
-      const remoteIds = new Set(remoteEntries.map((e) => e.id))
+      const remoteIds = new Set(
+        remoteEntries.map((e) => e.id).filter((id) => !RESERVED_IDS.has(id))
+      )
       for (const id of this.decrypted.keys()) {
         if (!remoteIds.has(id)) {
           this.decrypted.delete(id)
@@ -242,6 +270,7 @@ export class EntryManager {
     try {
       const idbEntries = await this.idb.list()
       for (const entry of idbEntries) {
+        if (RESERVED_IDS.has(entry.id)) continue
         if (!this.decrypted.has(entry.id)) {
           await this.decryptAndCache(entry)
         }
@@ -256,7 +285,10 @@ export class EntryManager {
     if (!this.userId) return () => {}
 
     return this.provider.watch(this.userId, async (remoteEntries) => {
+      if (!this.subkey || !this.userId) return
+
       for (const remote of remoteEntries) {
+        if (RESERVED_IDS.has(remote.id)) continue
         const existing = this.decrypted.get(remote.id)
         if (!existing || remote.updatedAt > existing.updatedAt) {
           await this.decryptAndCache(remote)
@@ -264,7 +296,9 @@ export class EntryManager {
         }
       }
 
-      const remoteIds = new Set(remoteEntries.map((e) => e.id))
+      const remoteIds = new Set(
+        remoteEntries.map((e) => e.id).filter((id) => !RESERVED_IDS.has(id))
+      )
       for (const id of this.decrypted.keys()) {
         if (!remoteIds.has(id)) {
           this.decrypted.delete(id)

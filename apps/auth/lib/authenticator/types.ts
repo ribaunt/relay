@@ -1,6 +1,6 @@
 import type { OtpType, TotpAlgorithm } from "@relay/types"
 
-export type { OtpType, TotpAlgorithm, OtpEntryPlaintext, StoredEntry } from "@relay/types"
+export type { OtpType, TotpAlgorithm, OtpEntryPlaintext, StoredEntry, Tag, TagStore } from "@relay/types"
 
 export type OtpEntry = {
   id: string
@@ -22,6 +22,7 @@ export type AddEntryInput = {
   color?: string | null
   notes?: string | null
   site?: string | null
+  tagIds?: string[]
 }
 
 export type EditEntryInput = {
@@ -33,4 +34,15 @@ export type EditEntryInput = {
   icon?: string | null
   color?: string | null
   site?: string | null
+  tagIds?: string[]
+}
+
+export type AddTagInput = {
+  name: string
+  color: string
+}
+
+export type EditTagInput = {
+  name?: string
+  color?: string
 }

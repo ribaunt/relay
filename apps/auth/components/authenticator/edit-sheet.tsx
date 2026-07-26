@@ -13,6 +13,7 @@ import {
 import { useAuthenticator } from "@/components/authenticator-provider"
 import { validateSecret } from "@/lib/authenticator/totp-engine"
 import type { OtpEntry, EditEntryInput } from "@/lib/authenticator/types"
+import TagManagerUi from "@/components/authenticator/tag-manager-ui"
 
 type EditSheetProps = {
   entry: OtpEntry | null
@@ -26,6 +27,7 @@ export default function EditSheet({ entry, open, onOpenChange }: EditSheetProps)
   const [accountName, setAccountName] = useState("")
   const [secret, setSecret] = useState("")
   const [notes, setNotes] = useState("")
+  const [editTagIds, setEditTagIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [initializedForId, setInitializedForId] = useState<string | null>(null)
@@ -35,6 +37,7 @@ export default function EditSheet({ entry, open, onOpenChange }: EditSheetProps)
     setAccountName(entry.plaintext.accountName)
     setSecret(entry.plaintext.secret)
     setNotes(entry.plaintext.notes ?? "")
+    setEditTagIds(entry.plaintext.tagIds ?? [])
     setError(null)
     setInitializedForId(entry.id)
   }
@@ -60,6 +63,7 @@ export default function EditSheet({ entry, open, onOpenChange }: EditSheetProps)
         accountName,
         secret: secret || undefined,
         notes: notes || null,
+        tagIds: editTagIds,
       }
       await editEntry(entry.id, input)
       onOpenChange(false)
@@ -116,6 +120,10 @@ export default function EditSheet({ entry, open, onOpenChange }: EditSheetProps)
               placeholder="Optional notes"
             />
           </div>
+          <TagManagerUi
+            selectedTagIds={editTagIds}
+            onChange={setEditTagIds}
+          />
         </div>
 
         {error && (

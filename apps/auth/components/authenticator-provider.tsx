@@ -13,9 +13,10 @@ import {
 import { useMasterKey } from "@/components/master-key-provider"
 import { deriveSubkey } from "@relay/crypto"
 import { EntryManager } from "@/lib/authenticator/entry-manager"
+import { TagManager } from "@/lib/authenticator/tag-manager"
 import { ConvexProvider } from "@/lib/authenticator/convex-provider"
 import { useActivity } from "@/lib/hooks/use-activity"
-import type { OtpEntry, AddEntryInput, EditEntryInput } from "@/lib/authenticator/types"
+import type { OtpEntry, AddEntryInput, EditEntryInput, Tag, AddTagInput, EditTagInput } from "@/lib/authenticator/types"
 
 type AuthenticatorContextValue = {
   entries: OtpEntry[]
@@ -29,6 +30,12 @@ type AuthenticatorContextValue = {
   refresh: () => Promise<void>
   searchQuery: string
   setSearchQuery: (q: string) => void
+  tags: Tag[]
+  addTag: (input: AddTagInput) => Promise<Tag>
+  editTag: (id: string, input: EditTagInput) => Promise<Tag>
+  deleteTag: (id: string) => Promise<void>
+  selectedTagIds: string[]
+  setSelectedTagIds: (ids: string[]) => void
 }
 
 const AuthenticatorContext = createContext<AuthenticatorContextValue | null>(null)
@@ -38,11 +45,14 @@ const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://fabulous-reind
 export function AuthenticatorProvider({ children }: { children: ReactNode }) {
   const { relay, isUnlocked, clientSession } = useMasterKey()
   const [entries, setEntries] = useState<OtpEntry[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const managerRef = useRef<EntryManager | null>(null)
+  const tagManagerRef = useRef<TagManager | null>(null)
   const providerRef = useRef<ConvexProvider | null>(null)
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const isActive = useActivity(60000)
@@ -54,17 +64,29 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const updateTags = useCallback(() => {
+    if (tagManagerRef.current) {
+      setTags(tagManagerRef.current.list())
+    }
+  }, [])
+
   useEffect(() => {
     if (!isUnlocked || !relay || !clientSession?.sub) {
       if (managerRef.current) {
         managerRef.current.lock()
         managerRef.current = null
       }
+      if (tagManagerRef.current) {
+        tagManagerRef.current.lock()
+        tagManagerRef.current = null
+      }
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
         unsubscribeRef.current = null
       }
       setEntries([])
+      setTags([])
+      setSelectedTagIds([])
       setInitialized(false)
       return
     }
@@ -86,20 +108,26 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
 
         const provider = new ConvexProvider(CONVEX_URL)
         const manager = new EntryManager(provider)
+        const tagManager = new TagManager(provider)
 
         manager.setOnChange(updateEntries)
+        tagManager.setOnChange(updateTags)
         await manager.init(subkey, clientSession!.sub!)
+        await tagManager.init(subkey, clientSession!.sub!)
 
         if (cancelled) {
           await manager.lock()
+          await tagManager.lock()
           return
         }
 
         providerRef.current = provider
         provider.setActive(isActive)
         managerRef.current = manager
+        tagManagerRef.current = tagManager
         unsubscribeRef.current = manager.startWatching()
         updateEntries()
+        updateTags()
         setInitialized(true)
       } catch (err) {
         if (!cancelled) {
@@ -124,9 +152,13 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
         managerRef.current.lock()
         managerRef.current = null
       }
+      if (tagManagerRef.current) {
+        tagManagerRef.current.lock()
+        tagManagerRef.current = null
+      }
       providerRef.current = null
     }
-  }, [isUnlocked, relay, clientSession, updateEntries])
+  }, [isUnlocked, relay, clientSession, updateEntries, updateTags])
 
   useEffect(() => {
     providerRef.current?.setActive(isActive)
@@ -165,6 +197,21 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
     }
   }, [clientSession])
 
+  const addTag = useCallback(async (input: AddTagInput): Promise<Tag> => {
+    if (!tagManagerRef.current) throw new Error("TagManager not initialized")
+    return tagManagerRef.current.add(input)
+  }, [])
+
+  const editTag = useCallback(async (id: string, input: EditTagInput): Promise<Tag> => {
+    if (!tagManagerRef.current) throw new Error("TagManager not initialized")
+    return tagManagerRef.current.edit(id, input)
+  }, [])
+
+  const deleteTag = useCallback(async (id: string): Promise<void> => {
+    if (!tagManagerRef.current) throw new Error("TagManager not initialized")
+    return tagManagerRef.current.delete(id)
+  }, [])
+
   const value = useMemo<AuthenticatorContextValue>(
     () => ({
       entries,
@@ -178,8 +225,14 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
       refresh,
       searchQuery,
       setSearchQuery,
+      tags,
+      addTag,
+      editTag,
+      deleteTag,
+      selectedTagIds,
+      setSelectedTagIds,
     }),
-    [entries, loading, error, initialized, addEntry, editEntry, deleteEntry, toggleFavorite, refresh, searchQuery],
+    [entries, loading, error, initialized, addEntry, editEntry, deleteEntry, toggleFavorite, refresh, searchQuery, tags, addTag, editTag, deleteTag, selectedTagIds],
   )
 
   return (

@@ -277,6 +277,20 @@ export type OtpEntryPlaintext = {
   notes: string | null
   favorite: boolean
   site: string | null
+  tagIds: string[]
+}
+
+export type Tag = {
+  id: string
+  name: string
+  color: string
+  createdAt: number
+}
+
+export type TagStore = {
+  version: number
+  tags: Tag[]
+  updatedAt: number
 }
 
 export type StoredEntry = {

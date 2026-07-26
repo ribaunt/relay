@@ -19,11 +19,12 @@ import { Spinner } from "@/components/ui/spinner"
 import { TextureButton } from "@/components/ui/texture-button"
 import { AddCircleIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import TagFilterBar from "@/components/authenticator/tag-filter-bar"
 import type { OtpEntry } from "@/lib/authenticator/types"
 
 export default function AuthenticatorApp() {
   const { isUnlocked, clientSession } = useMasterKey()
-  const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite } = useAuthenticator()
+  const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds } = useAuthenticator()
   const { message, visible, onHide, show: showToast } = useToast()
 
   const [addOpen, setAddOpen] = useState(false)
@@ -68,6 +69,12 @@ export default function AuthenticatorApp() {
   const filteredEntries = useMemo(() => {
     const query = searchQuery.toLowerCase()
     const filtered = entries.filter((entry) => {
+      if (selectedTagIds.length > 0) {
+        const entryTagIds = entry.plaintext.tagIds ?? []
+        if (!selectedTagIds.every((id) => entryTagIds.includes(id))) {
+          return false
+        }
+      }
       if (!query) return true
       return (
         entry.plaintext.issuer.toLowerCase().includes(query) ||
@@ -81,7 +88,15 @@ export default function AuthenticatorApp() {
       }
       return a.plaintext.issuer.localeCompare(b.plaintext.issuer)
     })
-  }, [entries, searchQuery])
+  }, [entries, searchQuery, selectedTagIds])
+
+  const handleToggleTagFilter = (tagId: string) => {
+    setSelectedTagIds(
+      selectedTagIds.includes(tagId)
+        ? selectedTagIds.filter((id) => id !== tagId)
+        : [...selectedTagIds, tagId]
+    )
+  }
 
   const handleCopy = (id: string, code: string) => {
     navigator.clipboard.writeText(code)
@@ -148,8 +163,13 @@ export default function AuthenticatorApp() {
         </div>
 
         {entries.length > 0 && (
-          <div className="mb-6">
+          <div className="mb-6 space-y-3">
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
+            <TagFilterBar
+              tags={tags}
+              selectedTagIds={selectedTagIds}
+              onToggleTag={handleToggleTagFilter}
+            />
           </div>
         )}
 

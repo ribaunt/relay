@@ -53,6 +53,7 @@ export function parseOtpAuthUri(uri: string): Partial<OtpEntryPlaintext> {
     color: null,
     notes: null,
     favorite: false,
+    tagIds: [],
   }
 }
 

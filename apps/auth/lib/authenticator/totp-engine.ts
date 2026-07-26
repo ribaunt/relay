@@ -6,6 +6,8 @@ function toAlgorithm(algorithm: TotpAlgorithm): string {
 }
 
 export function generateCode(entry: OtpEntryPlaintext, timestamp: number = Date.now()): string {
+  if (!entry.secret) return ""
+
   if (entry.type === "HOTP") {
     const hotp = new OTPAuth.HOTP({
       issuer: entry.issuer,
