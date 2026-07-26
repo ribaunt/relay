@@ -101,7 +101,24 @@ export default function EntryCard({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="font-semibold truncate">{entry.plaintext.issuer}</h3>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3 className="font-semibold truncate">{entry.plaintext.issuer}</h3>
+              {entryTags.length > 0 && (
+                <div className="flex shrink-0 gap-1">
+                  {entryTags.map((tag) => (
+                    <Tooltip key={tag.id}>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="inline-block h-2 w-2 rounded-full cursor-default"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>{tag.name}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              )}
+            </div>
             {entry.plaintext.favorite && (
               <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#eab308" fillOpacity="0.35" stroke="#eab308" strokeWidth="1.5" strokeOpacity="0.5" />
@@ -111,22 +128,6 @@ export default function EntryCard({
           <p className="text-sm text-muted-foreground truncate">{maskedAccount}</p>
         </div>
       </div>
-
-      {entryTags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {entryTags.map((tag) => (
-            <Tooltip key={tag.id}>
-              <TooltipTrigger asChild>
-                <span
-                  className="inline-block h-2 w-2 rounded-full cursor-default"
-                  style={{ backgroundColor: tag.color }}
-                />
-              </TooltipTrigger>
-              <TooltipContent>{tag.name}</TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      )}
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
