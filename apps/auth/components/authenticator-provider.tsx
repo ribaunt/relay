@@ -16,6 +16,7 @@ import { EntryManager } from "@/lib/authenticator/entry-manager"
 import { TagManager } from "@/lib/authenticator/tag-manager"
 import { ConvexProvider } from "@/lib/authenticator/convex-provider"
 import { useActivity } from "@/lib/hooks/use-activity"
+import { useOnline } from "@/lib/hooks/use-online"
 import type { OtpEntry, AddEntryInput, EditEntryInput, Tag, AddTagInput, EditTagInput } from "@/lib/authenticator/types"
 
 type AuthenticatorContextValue = {
@@ -23,6 +24,7 @@ type AuthenticatorContextValue = {
   loading: boolean
   error: string | null
   initialized: boolean
+  online: boolean
   addEntry: (input: AddEntryInput) => Promise<OtpEntry>
   editEntry: (id: string, input: EditEntryInput) => Promise<OtpEntry>
   deleteEntry: (id: string) => Promise<void>
@@ -56,6 +58,7 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
   const providerRef = useRef<ConvexProvider | null>(null)
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const isActive = useActivity(60000)
+  const online = useOnline()
 
   const updateEntries = useCallback(() => {
     if (managerRef.current) {
@@ -72,18 +75,20 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isUnlocked || !relay || !clientSession?.sub) {
+      const dispose = !clientSession
       if (managerRef.current) {
-        managerRef.current.lock()
+        dispose ? void managerRef.current.logout() : void managerRef.current.lock()
         managerRef.current = null
       }
       if (tagManagerRef.current) {
-        tagManagerRef.current.lock()
+        dispose ? void tagManagerRef.current.logout() : void tagManagerRef.current.lock()
         tagManagerRef.current = null
       }
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
         unsubscribeRef.current = null
       }
+      providerRef.current = null
       setEntries([])
       setTags([])
       setSelectedTagIds([])
@@ -166,23 +171,27 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
 
   const addEntry = useCallback(async (input: AddEntryInput): Promise<OtpEntry> => {
     if (!managerRef.current) throw new Error("Authenticator not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return managerRef.current.add(input)
-  }, [])
+  }, [online])
 
   const editEntry = useCallback(async (id: string, input: EditEntryInput): Promise<OtpEntry> => {
     if (!managerRef.current) throw new Error("Authenticator not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return managerRef.current.edit(id, input)
-  }, [])
+  }, [online])
 
   const deleteEntry = useCallback(async (id: string): Promise<void> => {
     if (!managerRef.current) throw new Error("Authenticator not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return managerRef.current.delete(id)
-  }, [])
+  }, [online])
 
   const toggleFavorite = useCallback(async (id: string): Promise<void> => {
     if (!managerRef.current) throw new Error("Authenticator not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return managerRef.current.toggleFavorite(id)
-  }, [])
+  }, [online])
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!managerRef.current || !clientSession) return
@@ -199,18 +208,21 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
 
   const addTag = useCallback(async (input: AddTagInput): Promise<Tag> => {
     if (!tagManagerRef.current) throw new Error("TagManager not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return tagManagerRef.current.add(input)
-  }, [])
+  }, [online])
 
   const editTag = useCallback(async (id: string, input: EditTagInput): Promise<Tag> => {
     if (!tagManagerRef.current) throw new Error("TagManager not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return tagManagerRef.current.edit(id, input)
-  }, [])
+  }, [online])
 
   const deleteTag = useCallback(async (id: string): Promise<void> => {
     if (!tagManagerRef.current) throw new Error("TagManager not initialized")
+    if (!online) throw new Error("No connection to the internet")
     return tagManagerRef.current.delete(id)
-  }, [])
+  }, [online])
 
   const value = useMemo<AuthenticatorContextValue>(
     () => ({
@@ -218,6 +230,7 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       initialized,
+      online,
       addEntry,
       editEntry,
       deleteEntry,
@@ -232,7 +245,7 @@ export function AuthenticatorProvider({ children }: { children: ReactNode }) {
       selectedTagIds,
       setSelectedTagIds,
     }),
-    [entries, loading, error, initialized, addEntry, editEntry, deleteEntry, toggleFavorite, refresh, searchQuery, tags, addTag, editTag, deleteTag, selectedTagIds],
+    [entries, loading, error, initialized, online, addEntry, editEntry, deleteEntry, toggleFavorite, refresh, searchQuery, tags, addTag, editTag, deleteTag, selectedTagIds],
   )
 
   return (

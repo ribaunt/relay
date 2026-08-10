@@ -28,7 +28,7 @@ type TagManagerUiProps = {
 }
 
 export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiProps) {
-  const { tags, addTag, deleteTag } = useAuthenticator()
+  const { tags, addTag, deleteTag, online } = useAuthenticator()
   const [newTagName, setNewTagName] = useState("")
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[5]!)
   const [isCreating, setIsCreating] = useState(false)
@@ -85,7 +85,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
                   e.stopPropagation()
                   handleDeleteTag(tag.id)
                 }}
-                className="tag-delete-badge absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:flex"
+                className="tag-delete-badge absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:flex disabled:opacity-40"
+                disabled={!online}
                 aria-label={`Delete tag ${tag.name}`}
               >
                 <HugeiconsIcon icon={Delete} size={8} strokeWidth={2} />
@@ -128,8 +129,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
           <div className="flex gap-2">
             <TextureButton
               onClick={handleCreateTag}
-              disabled={!newTagName.trim()}
-              className="flex-1"
+              disabled={!newTagName.trim() || !online}
+              className="flex-1 disabled:opacity-50"
             >
               Create
             </TextureButton>
@@ -147,7 +148,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
       ) : (
         <TextureButton
           variant="secondary"
-          className="w-full"
+          className="w-full disabled:opacity-50"
+          disabled={!online}
           onClick={() => setIsCreating(true)}
         >
           <HugeiconsIcon icon={AddCircleIcon} size={16} strokeWidth={1.5} />

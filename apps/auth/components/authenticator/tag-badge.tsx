@@ -33,6 +33,7 @@ export default function TagBadge({
         onClick?.()
       }}
       className={cn(
+        "shrink-0",
         compact
           ? "inline-flex h-5 items-center gap-1 rounded px-2 text-[11px] font-medium transition-all"
           : "touch-target inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-all sm:h-9",

@@ -29,8 +29,9 @@ type AuthenticatorAppProps = {
 
 export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProps) {
   const { isUnlocked, clientSession } = useMasterKey()
-  const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds } = useAuthenticator()
-  const { message, visible, onHide, show: showToast } = useToast()
+  const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds, online } = useAuthenticator()
+  const { message, visible, dismissible, hide: hideToast, show: showToast } = useToast()
+  const offlineDismissedRef = useRef(false)
 
   const [addOpen, setAddOpen] = useState(() => initialAction === "add")
   const [addMode, setAddMode] = useState<"scan" | "manual">("scan")
@@ -42,8 +43,24 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
   const isStuck = clientSession && !isUnlocked && !initialized
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const openAdd = () => {
-    setAddMode("scan")
+  useEffect(() => {
+    if (!online) {
+      if (!offlineDismissedRef.current) {
+        showToast("No connection to the internet", { sticky: true, dismissible: true })
+      }
+    } else {
+      offlineDismissedRef.current = false
+      hideToast()
+    }
+  }, [online, showToast, hideToast])
+
+  const openAdd = (mode: "scan" | "manual" = "scan") => {
+    if (!online) {
+      offlineDismissedRef.current = false
+      showToast("No connection to the internet", { sticky: true, dismissible: true })
+      return
+    }
+    setAddMode(mode)
     setAddOpen(true)
   }
 
@@ -187,14 +204,8 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
 
         {entries.length === 0 ? (
           <EmptyState
-            onScanQr={() => {
-              setAddMode("scan")
-              setAddOpen(true)
-            }}
-            onManualEntry={() => {
-              setAddMode("manual")
-              setAddOpen(true)
-            }}
+            onScanQr={() => openAdd("scan")}
+            onManualEntry={() => openAdd("manual")}
           />
         ) : (
           <div className="space-y-3">
@@ -236,10 +247,18 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
         onOpenChange={setSettingsOpen}
       />
 
-      {entries.length > 0 && <Fab onClick={openAdd} />}
+      {entries.length > 0 && <Fab onClick={() => openAdd("scan")} />}
 
       <AnimatePresence>
-        <Toast message={message} visible={visible} onHide={onHide} />
+        <Toast
+          message={message}
+          visible={visible}
+          dismissible={dismissible}
+          onHide={() => {
+            offlineDismissedRef.current = true
+            hideToast()
+          }}
+        />
       </AnimatePresence>
     </div>
     </SettingsProvider>

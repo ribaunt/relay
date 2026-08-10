@@ -38,7 +38,7 @@ export default function DetailPanel({
   onToggleFavorite,
 }: DetailPanelProps) {
   const isDesktop = useIsDesktop()
-  const { editEntry, deleteEntry, entries, tags } = useAuthenticator()
+  const { editEntry, deleteEntry, entries, tags, online } = useAuthenticator()
   const { settings } = useSettings()
   const [copied, setCopied] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -231,7 +231,7 @@ export default function DetailPanel({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
         <div className="rounded-lg border bg-card p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">Current Code</span>
@@ -297,90 +297,105 @@ export default function DetailPanel({
       </div>
 
       <div className="border-t p-4 space-y-2">
-        <TextureButton variant="secondary" className="w-full" onClick={handleEditOpen}>
+        <TextureButton
+          variant="secondary"
+          className="w-full disabled:opacity-50"
+          disabled={!online}
+          onClick={handleEditOpen}
+          title={!online ? "Editing requires a connection" : undefined}
+        >
           <HugeiconsIcon icon={Edit} size={18} strokeWidth={1.5} />
           Edit
         </TextureButton>
         <TextureButton
           variant="destructive"
-          className="w-full"
+          className="w-full disabled:opacity-50"
+          disabled={!online}
           onClick={() => {
             setError(null)
             setDeleteOpen(true)
           }}
+          title={!online ? "Deleting requires a connection" : undefined}
         >
           <HugeiconsIcon icon={Delete} size={18} strokeWidth={1.5} />
           Delete
         </TextureButton>
+        {!online && (
+          <p className="text-center text-xs text-muted-foreground">
+            Reconnect to edit or delete accounts.
+          </p>
+        )}
       </div>
     </>
   )
 
   const editContent = (
     <>
-      <div className="p-4">
+      <div className="shrink-0 p-4">
         <h3 className="text-lg font-semibold">Edit Entry</h3>
         <p className="text-sm text-muted-foreground">Update your authenticator details</p>
       </div>
 
-      <div className="space-y-4 px-4 pb-4">
-        <div className="space-y-2">
-          <Label>Issuer</Label>
-          <Input
-            value={issuer}
-            onChange={(e) => setIssuer(e.target.value)}
-            placeholder="GitHub"
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="space-y-4 px-4 pb-4">
+          <div className="space-y-2">
+            <Label>Issuer</Label>
+            <Input
+              value={issuer}
+              onChange={(e) => setIssuer(e.target.value)}
+              placeholder="GitHub"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Account</Label>
+            <Input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="username@email.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Secret</Label>
+            <Input
+              value={secret}
+              onChange={(e) => setSecret(e.target.value.toUpperCase())}
+              placeholder="JBSWY3DPEHPK3PXP"
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave blank to keep current secret
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Site</Label>
+            <Input
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+              placeholder="github.com"
+            />
+          </div>
+          <TagManagerUi
+            selectedTagIds={editTagIds}
+            onChange={setEditTagIds}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Account</Label>
-          <Input
-            value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
-            placeholder="username@email.com"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Secret</Label>
-          <Input
-            value={secret}
-            onChange={(e) => setSecret(e.target.value.toUpperCase())}
-            placeholder="JBSWY3DPEHPK3PXP"
-            className="font-mono"
-          />
-          <p className="text-xs text-muted-foreground">
-            Leave blank to keep current secret
-          </p>
-        </div>
-        <div className="space-y-2">
-          <Label>Notes</Label>
-          <Input
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional notes"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Site</Label>
-          <Input
-            value={site}
-            onChange={(e) => setSite(e.target.value)}
-            placeholder="github.com"
-          />
-        </div>
-        <TagManagerUi
-          selectedTagIds={editTagIds}
-          onChange={setEditTagIds}
-        />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
       </div>
 
-      <div className="border-t p-4 space-y-2">
+      <div className="shrink-0 border-t p-4 space-y-2">
         <TextureButton
           onClick={handleSave}
-          disabled={!issuer || !accountName || loading}
-          className="w-full"
+          disabled={!issuer || !accountName || loading || !online}
+          className="w-full disabled:opacity-50"
         >
           {loading ? <Spinner size={18} color="currentColor" /> : "Save"}
         </TextureButton>
@@ -393,24 +408,31 @@ export default function DetailPanel({
 
   const deleteContent = (
     <>
-      <div className="p-4">
+      <div className="shrink-0 p-4">
         <h3 className="text-lg font-semibold text-destructive">Delete Entry</h3>
         <p className="text-sm text-muted-foreground">
           Permanently remove {entry.plaintext.issuer}?
         </p>
       </div>
 
-      <div className="px-4 pb-4">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-sm text-muted-foreground">
-            This will permanently remove this authenticator entry. This action cannot be undone.
-          </p>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="px-4 pb-4">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+            <p className="text-sm text-muted-foreground">
+              This will permanently remove this authenticator entry. This action cannot be undone.
+            </p>
+          </div>
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
         </div>
-        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
       </div>
 
-      <div className="border-t p-4 space-y-2">
-        <TextureButton variant="destructive" className="w-full" onClick={handleDelete} disabled={loading}>
+      <div className="shrink-0 border-t p-4 space-y-2">
+        <TextureButton
+          variant="destructive"
+          className="w-full disabled:opacity-50"
+          onClick={handleDelete}
+          disabled={loading || !online}
+        >
           {loading ? <Spinner size={18} color="currentColor" /> : "Delete"}
         </TextureButton>
         <TextureButton variant="secondary" className="w-full" onClick={() => setDeleteOpen(false)}>

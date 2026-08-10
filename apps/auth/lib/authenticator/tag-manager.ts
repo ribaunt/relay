@@ -1,5 +1,6 @@
 import type { Tag, TagStore } from "@relay/types"
 import { encryptWithMasterKey, decryptWithMasterKey } from "@relay/crypto"
+import { EncryptedIdbStore } from "./encrypted-idb-store"
 import type { AuthenticatorStorageProvider } from "./storage-provider"
 import type { StoredEntry } from "@relay/types"
 import type { AddTagInput, EditTagInput } from "./types"
@@ -13,15 +14,18 @@ export class TagManager {
   private subkey: Uint8Array | null = null
   private userId: string | null = null
   private provider: AuthenticatorStorageProvider
+  private idb: EncryptedIdbStore
   private onChange: (() => void) | null = null
 
   constructor(provider: AuthenticatorStorageProvider) {
     this.provider = provider
+    this.idb = new EncryptedIdbStore()
   }
 
   async init(subkey: Uint8Array, userId: string): Promise<void> {
     this.subkey = subkey
     this.userId = userId
+    await this.idb.init(subkey)
     await this.syncFromRemote()
   }
 
@@ -112,6 +116,7 @@ export class TagManager {
       updatedAt: store.updatedAt,
     }
 
+    await this.idb.put(stored)
     await this.provider.put(this.userId, stored)
   }
 
@@ -125,14 +130,30 @@ export class TagManager {
       if (tagStoreEntry) {
         const store = await this.decrypt(tagStoreEntry.ciphertext, tagStoreEntry.iv)
         this.tags = store.tags
+        await this.idb.put(tagStoreEntry)
         this.onChange?.()
       }
     } catch (error) {
       console.error("Failed to sync tags from remote:", error)
+      await this.syncFromIdb()
+    }
+  }
+
+  private async syncFromIdb(): Promise<void> {
+    if (!this.subkey) return
+    try {
+      const stored = await this.idb.get(TAG_STORE_ENTRY_ID)
+      if (!stored) return
+      const store = await this.decrypt(stored.ciphertext, stored.iv)
+      this.tags = store.tags
+      this.onChange?.()
+    } catch (error) {
+      console.error("Failed to sync tags from IndexedDB:", error)
     }
   }
 
   async lock(): Promise<void> {
+    // Keep the encrypted local copy for offline restore on next unlock.
     this.tags = []
     this.subkey = null
     this.userId = null
@@ -140,9 +161,7 @@ export class TagManager {
   }
 
   async logout(): Promise<void> {
-    this.tags = []
-    this.subkey = null
-    this.userId = null
-    this.onChange?.()
+    await this.lock()
+    await this.idb.clear()
   }
 }

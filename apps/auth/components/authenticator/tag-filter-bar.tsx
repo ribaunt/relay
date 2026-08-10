@@ -17,7 +17,7 @@ export default function TagFilterBar({
   if (tags.length === 0) return null
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+    <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 scrollbar-none">
       {tags.map((tag) => {
         const isSelected = selectedTagIds.includes(tag.id)
         return (

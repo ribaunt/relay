@@ -311,8 +311,9 @@ export class EntryManager {
   }
 
   async lock(): Promise<void> {
+    // Lock only unseals memory: the encrypted local copy (IndexedDB) is kept so
+    // the vault can be restored offline on the next unlock.
     this.decrypted.clear()
-    await this.idb.clear()
     this.queue.clear()
     this.subkey = null
     this.userId = null
@@ -320,11 +321,7 @@ export class EntryManager {
   }
 
   async logout(): Promise<void> {
-    this.decrypted.clear()
+    await this.lock()
     await this.idb.clear()
-    this.queue.clear()
-    this.subkey = null
-    this.userId = null
-    this.onChange?.()
   }
 }

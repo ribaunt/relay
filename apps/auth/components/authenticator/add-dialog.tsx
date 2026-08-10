@@ -34,7 +34,7 @@ type AddDialogProps = {
 
 export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: AddDialogProps) {
   const isDesktop = useIsDesktop()
-  const { addEntry } = useAuthenticator()
+  const { addEntry, online } = useAuthenticator()
   const [mode, setMode] = useState<"scan" | "manual">(initialMode)
   const [issuer, setIssuer] = useState("")
   const [accountName, setAccountName] = useState("")
@@ -254,11 +254,17 @@ export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: 
         <p className="text-sm text-destructive">{error}</p>
       )}
 
+      {!online && (
+        <p className="text-sm text-muted-foreground">
+          You&apos;re offline — reconnect to save accounts.
+        </p>
+      )}
+
       {mode === "manual" && (
         <TextureButton
           onClick={handleSave}
-          disabled={loading}
-          className={cn("w-full", hasFieldErrors && "border-destructive/50 text-destructive hover:text-destructive")}
+          disabled={loading || !online}
+          className={cn("w-full disabled:opacity-50", hasFieldErrors && "border-destructive/50 text-destructive hover:text-destructive")}
         >
           {loading ? <Spinner size={18} color="currentColor" /> : hasFieldErrors ? "Fill required fields" : "Save"}
         </TextureButton>
@@ -286,7 +292,7 @@ export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: 
         <div className="p-4 shrink-0">
           <h3 className="text-lg font-semibold">Add Account</h3>
         </div>
-        <div className={isDesktop ? "px-4 pb-6 space-y-4" : "overflow-y-auto px-4 pb-6 space-y-4"}>
+        <div className={isDesktop ? "px-4 pb-6 space-y-4" : "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 space-y-4"}>
           {formContent}
         </div>
       </DrawerContent>
