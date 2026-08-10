@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Input } from "@/components/ui/input"
@@ -47,12 +47,6 @@ export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    if (open) {
-      setMode(initialMode)
-    }
-  }, [open, initialMode])
 
   const clearFieldError = (field: string) => {
     if (fieldErrors[field]) {
@@ -276,7 +270,13 @@ export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: 
     <Drawer
       open={open}
       onOpenChange={(open) => {
-        if (!open) resetForm()
+        if (!open) {
+          resetForm()
+        } else {
+          setMode(initialMode)
+          setError(null)
+          setFieldErrors({})
+        }
         onOpenChange(open)
       }}
       noBodyStyles

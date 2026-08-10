@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
-import { useSearchParams } from "next/navigation"
 import { AnimatePresence } from "motion/react"
 import { useAuthenticator } from "@/components/authenticator-provider"
 import { useMasterKey } from "@/components/master-key-provider"
@@ -24,13 +23,16 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import TagFilterBar from "@/components/authenticator/tag-filter-bar"
 import type { OtpEntry } from "@/lib/authenticator/types"
 
-export default function AuthenticatorApp() {
+type AuthenticatorAppProps = {
+  initialAction?: string | null
+}
+
+export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProps) {
   const { isUnlocked, clientSession } = useMasterKey()
   const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds } = useAuthenticator()
   const { message, visible, onHide, show: showToast } = useToast()
-  const searchParams = useSearchParams()
 
-  const [addOpen, setAddOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(() => initialAction === "add")
   const [addMode, setAddMode] = useState<"scan" | "manual">("scan")
   const [detailEntry, setDetailEntry] = useState<OtpEntry | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -44,13 +46,6 @@ export default function AuthenticatorApp() {
     setAddMode("scan")
     setAddOpen(true)
   }
-
-  useEffect(() => {
-    if (searchParams.get("action") === "add") {
-      openAdd()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useEffect(() => {
     if (!isStuck) {
@@ -161,7 +156,7 @@ export default function AuthenticatorApp() {
                 e.preventDefault()
                 openAdd()
               }}
-              className="hidden w-auto gap-2 sm:inline-flex"
+              className="hidden gap-2 sm:inline-flex"
             >
                   <HugeiconsIcon icon={AddCircleIcon} size={18} />
               New
