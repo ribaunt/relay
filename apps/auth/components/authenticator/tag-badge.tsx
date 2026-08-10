@@ -35,7 +35,7 @@ export default function TagBadge({
       className={cn(
         compact
           ? "inline-flex h-5 items-center gap-1 rounded px-2 text-[11px] font-medium transition-all"
-          : "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-all",
+          : "touch-target inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-all sm:h-9",
         onClick && "cursor-pointer hover:brightness-110",
         !onClick && !removable && "cursor-default",
         dimmed && "opacity-40",

@@ -85,7 +85,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
                   e.stopPropagation()
                   handleDeleteTag(tag.id)
                 }}
-                className="absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:flex"
+                className="tag-delete-badge absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:flex"
+                aria-label={`Delete tag ${tag.name}`}
               >
                 <HugeiconsIcon icon={Delete} size={8} strokeWidth={2} />
               </button>
@@ -114,7 +115,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
                 key={color}
                 type="button"
                 onClick={() => setNewTagColor(color)}
-                className="h-6 w-6 rounded-full transition-transform hover:scale-110"
+                className="h-8 w-8 rounded-full transition-transform hover:scale-110 active:scale-95 sm:h-6 sm:w-6"
+                aria-label={`Use color ${color}`}
                 style={{
                   backgroundColor: color,
                   outline: newTagColor === color ? `2px solid ${color}` : "2px solid transparent",

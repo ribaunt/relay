@@ -10,6 +10,7 @@ Relay is a **zero-knowledge identity and crypto monorepo**. The server never see
 |---------|------|-------|
 | `apps/id` (`@relay/id`) | OIDC identity provider (`id.relay.re`) | `:3001` |
 | `apps/auth` (`@relay/auth`) | First-party OIDC relying party (`auth.relay.re`) | `:3000` |
+| `apps/home` (`@relay/home`) | Public homepage (`relay.re`) | `:3002` |
 | `packages/@relay/*` | Shared SDK, crypto, types, UI | workspace packages |
 
 **Stack:** pnpm workspaces · Node ≥20 · TypeScript 5.9 · Next.js 16 · Convex · Better Auth · libsodium · SRP-6a · PostHog · Redis
@@ -20,6 +21,7 @@ Relay is a **zero-knowledge identity and crypto monorepo**. The server never see
 apps/
   auth/          # OIDC RP — session cookies, PKCE, master-key handoff UI
   id/            # OIDC IdP — SRP auth, Convex schema, recovery, devices
+  home/          # Public homepage (relay.re), minimal Next.js app
 packages/@relay/
   core/          # Relay SDK: lock/unlock, keys, storage/search/sync interfaces
   crypto/        # Argon2id, secretbox, recovery, handoff crypto
@@ -88,9 +90,10 @@ Important tables: `users`, `encrypted_keys`, `sessions`, `devices`, `srp_handsha
 ### Commands
 
 ```bash
-pnpm dev              # generate keys + auth:3000 + id:3001
+pnpm dev              # generate keys + auth:3000 + id:3001 + home:3002
 pnpm dev:auth         # auth only
 pnpm dev:id           # id only
+pnpm dev:home         # home only
 pnpm build            # recursive build
 pnpm typecheck        # recursive tsc
 pnpm lint

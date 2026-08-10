@@ -19,11 +19,17 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
         className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
       />
       <Input
-        type="text"
+        type="search"
         placeholder="Search..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="pl-10 pr-10"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        enterKeyHint="search"
+        aria-label="Search accounts"
       />
       {value && (
         <Button

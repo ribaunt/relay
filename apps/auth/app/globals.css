@@ -127,6 +127,9 @@
     }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
     }
 }
 
@@ -135,6 +138,38 @@
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Notched-device / PWA safe areas (usable as pt-safe, pb-safe, px-safe, bottom-safe). */
+@utility pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+@utility pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+@utility px-safe {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+@utility bottom-safe {
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+@utility right-safe {
+  right: max(1.5rem, env(safe-area-inset-right));
+}
+@utility left-safe {
+  left: max(1.5rem, env(safe-area-inset-left));
+}
+
+/* Guarantee a thumb-friendly hit area on touch devices only. */
+@utility touch-target {
+  @media (pointer: coarse) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 }
 
@@ -168,4 +203,11 @@
   -webkit-mask-size: contain;
   mask-size: contain;
   will-change: background-position;
+}
+
+/* Hover-only affordances (e.g. tag delete badges) must stay visible on touch screens. */
+@media (pointer: coarse) {
+  .tag-delete-badge {
+    display: flex;
+  }
 }

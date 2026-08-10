@@ -13,8 +13,14 @@ export default function Fab({ onClick }: FabProps) {
     <Button
       variant="default"
       size="icon-lg"
-      onClick={onClick}
-      className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+      onClick={() => {
+        if (typeof navigator.vibrate === "function") {
+          navigator.vibrate(8)
+        }
+        onClick()
+      }}
+      className="fixed right-safe bottom-safe z-40 h-14 w-14 rounded-full shadow-lg active:scale-95 sm:hidden"
+      aria-label="Add account"
     >
       <HugeiconsIcon icon={AddCircleIcon} size={24} />
     </Button>

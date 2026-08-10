@@ -23,7 +23,7 @@ export default function AuthLoadingScreen({
   }, [autoRedirectUrl])
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6">
+    <main className="flex min-h-dvh items-center justify-center bg-[#000000] px-6">
       <div className="flex flex-col items-center gap-4 text-center text-white">
         <Spinner size={36} color="white" />
         {children ? <div className="max-w-sm text-sm text-white/70">{children}</div> : null}

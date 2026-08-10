@@ -74,7 +74,7 @@ export default function EntryCard({
 
   return (
     <div
-      className="group relative cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
+      className="group relative cursor-pointer select-none rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
       onClick={onOpenDetail}
     >
       <div className="flex items-start gap-3">
@@ -137,7 +137,12 @@ export default function EntryCard({
               e.stopPropagation()
               onCopy(code)
             }}
-            className="font-mono text-2xl font-semibold tracking-wider hover:text-primary transition-colors"
+            onContextMenu={(e) => {
+              e.preventDefault()
+              onCopy(code)
+            }}
+            className="touch-target flex min-h-11 items-center font-mono text-2xl font-semibold tracking-wider hover:text-primary active:opacity-70 transition-colors"
+            aria-label={`Copy code ${code}`}
           >
             {displayCode}
           </button>

@@ -29,7 +29,7 @@ export default function LockScreen() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
         <HugeiconsIcon icon={LockKeyhole} size={40} className="text-muted-foreground" />
       </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { AnimatePresence } from "motion/react"
 import { useAuthenticator } from "@/components/authenticator-provider"
 import { useMasterKey } from "@/components/master-key-provider"
@@ -14,6 +15,7 @@ import AddDialog from "@/components/authenticator/add-dialog"
 import DetailPanel from "@/components/authenticator/detail-panel"
 import SettingsDrawer from "@/components/authenticator/settings-drawer"
 import ProfileDropdown from "@/components/authenticator/profile-dropdown"
+import Fab from "@/components/authenticator/fab"
 import { Toast, useToast } from "@/components/authenticator/toast"
 import { Spinner } from "@/components/ui/spinner"
 import { TextureButton } from "@/components/ui/texture-button"
@@ -26,6 +28,7 @@ export default function AuthenticatorApp() {
   const { isUnlocked, clientSession } = useMasterKey()
   const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds } = useAuthenticator()
   const { message, visible, onHide, show: showToast } = useToast()
+  const searchParams = useSearchParams()
 
   const [addOpen, setAddOpen] = useState(false)
   const [addMode, setAddMode] = useState<"scan" | "manual">("scan")
@@ -36,6 +39,18 @@ export default function AuthenticatorApp() {
 
   const isStuck = clientSession && !isUnlocked && !initialized
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const openAdd = () => {
+    setAddMode("scan")
+    setAddOpen(true)
+  }
+
+  useEffect(() => {
+    if (searchParams.get("action") === "add") {
+      openAdd()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!isStuck) {
@@ -100,6 +115,9 @@ export default function AuthenticatorApp() {
 
   const handleCopy = (id: string, code: string) => {
     navigator.clipboard.writeText(code)
+    if (typeof navigator.vibrate === "function") {
+      navigator.vibrate(12)
+    }
     setCopiedId(id)
     showToast("Copied to clipboard")
     setTimeout(() => setCopiedId(null), 2000)
@@ -107,7 +125,7 @@ export default function AuthenticatorApp() {
 
   if (!clientSession) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
+      <div className="flex min-h-dvh items-center justify-center">
         <Spinner size={32} />
       </div>
     )
@@ -115,7 +133,7 @@ export default function AuthenticatorApp() {
 
   if (!initialized || loading) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
+      <div className="flex min-h-dvh items-center justify-center">
         <Spinner size={32} />
       </div>
     )
@@ -127,12 +145,12 @@ export default function AuthenticatorApp() {
 
   return (
     <SettingsProvider>
-    <div className="min-h-svh bg-background">
-      <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="min-h-dvh overflow-x-clip bg-background">
+      <div className="mx-auto max-w-2xl px-safe pt-8 pb-safe">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src="/relay.svg" alt="Relay" className="h-8 w-8 invert dark:invert-0" />
-            <h1 className="text-3xl font-bold">Auth</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">Auth</h1>
           </div>
           <div className="flex items-center gap-2">
             <TextureButton
@@ -141,10 +159,9 @@ export default function AuthenticatorApp() {
               variant="primary"
               onClick={(e) => {
                 e.preventDefault()
-                setAddMode("scan")
-                setAddOpen(true)
+                openAdd()
               }}
-              className="gap-2"
+              className="hidden w-auto gap-2 sm:inline-flex"
             >
                   <HugeiconsIcon icon={AddCircleIcon} size={18} />
               New
@@ -223,6 +240,8 @@ export default function AuthenticatorApp() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
       />
+
+      {entries.length > 0 && <Fab onClick={openAdd} />}
 
       <AnimatePresence>
         <Toast message={message} visible={visible} onHide={onHide} />

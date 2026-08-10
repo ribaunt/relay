@@ -55,7 +55,7 @@ export default function AuthLauncher({ clientId, returnTo }: AuthLauncherProps) 
   }, [isUnlocked, clientSession, returnTo, router])
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6 text-white">
+    <main className="flex min-h-dvh items-center justify-center bg-[#000000] px-6 text-white">
       <Spinner size={36} color="white" />
       {handoffError ? <p className="text-sm text-red-300">{handoffError}</p> : null}
     </main>

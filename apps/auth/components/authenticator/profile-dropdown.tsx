@@ -40,7 +40,7 @@ export default function ProfileDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <TextureButton variant="icon" size="icon" className="h-10 w-10 rounded-full">
+        <TextureButton variant="icon" size="icon" className="touch-target h-10 w-10 rounded-full">
           <Avatar className="h-9 w-9">
             {picture && <AvatarImage src={picture} alt={name ?? ""} />}
             <AvatarFallback className="text-xs font-medium">{initials}</AvatarFallback>

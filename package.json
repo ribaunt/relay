@@ -3,14 +3,16 @@
   "private": false,
   "version": "0.1.0",
   "scripts": {
-    "dev": "node scripts/generate-keys.mjs && concurrently -n auth,id -c cyan,magenta \"pnpm dev:auth\" \"pnpm dev:id\"",
+    "dev": "node scripts/generate-keys.mjs && concurrently -n auth,id,home -c cyan,magenta,green \"pnpm dev:auth\" \"pnpm dev:id\" \"pnpm dev:home\"",
     "dev:auth": "pnpm --filter @relay/auth dev",
     "dev:id": "pnpm --filter @relay/id dev",
+    "dev:home": "pnpm --filter @relay/home dev",
     "dev:setup": "node scripts/generate-keys.mjs",
     "build": "pnpm -r build",
-    "start": "concurrently -n auth,id -c cyan,magenta \"pnpm start:auth\" \"pnpm start:id\"",
+    "start": "concurrently -n auth,id,home -c cyan,magenta,green \"pnpm start:auth\" \"pnpm start:id\" \"pnpm start:home\"",
     "start:auth": "pnpm --filter @relay/auth start",
     "start:id": "pnpm --filter @relay/id start",
+    "start:home": "pnpm --filter @relay/home start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write \"**/*.{ts,tsx}\""

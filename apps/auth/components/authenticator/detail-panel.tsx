@@ -173,7 +173,7 @@ export default function DetailPanel({
 
   const displayCode = settings.hideCodes ? "•".repeat(formattedCode.length) : formattedCode
 
-  const iconClass = "bg-transparent border-0 p-0 flex items-center justify-center"
+  const iconClass = "bg-transparent border-0 p-0 flex items-center justify-center touch-target"
 
   const content = (
     <>

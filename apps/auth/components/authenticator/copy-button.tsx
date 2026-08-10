@@ -28,7 +28,8 @@ export default function CopyButton({ code, onCopy, copied }: CopyButtonProps) {
         <button
           type="button"
           onClick={handleCopy}
-          className="flex h-8 w-8 items-center justify-center rounded-md bg-transparent border-0 p-0 hover:bg-accent/50 transition-colors"
+          className="touch-target flex h-8 w-8 items-center justify-center rounded-md bg-transparent border-0 p-0 hover:bg-accent/50 active:scale-95 transition-colors"
+          aria-label={copied ? "Copied" : "Copy code"}
         >
           <HugeiconsIcon
             icon={copied ? CheckmarkCircle02Icon : Copy}

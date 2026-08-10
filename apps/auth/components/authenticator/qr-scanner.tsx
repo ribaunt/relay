@@ -11,6 +11,7 @@ type QrScannerProps = {
 export default function QrScanner({ onScan, onError }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader()
@@ -57,12 +58,22 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
         stopCamera()
       })
     }
-  }, [onScan, onError])
+  }, [onScan, onError, attempt])
 
   if (error) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-lg bg-muted">
+      <div className="flex aspect-square flex-col items-center justify-center gap-3 rounded-lg bg-muted px-6 text-center">
         <p className="text-sm text-muted-foreground">{error}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null)
+            setAttempt((a) => a + 1)
+          }}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground active:scale-95"
+        >
+          Try again
+        </button>
       </div>
     )
   }
@@ -74,6 +85,9 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
         className="h-full w-full object-cover"
         autoPlay
         playsInline
+        muted
+        disablePictureInPicture
+        aria-label="QR code camera preview"
       />
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="h-48 w-48 rounded-lg border-2 border-white/50" />
