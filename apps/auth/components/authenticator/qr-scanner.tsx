@@ -1,7 +1,18 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser"
+import {
+  BrowserQRCodeReader,
+  type IScannerControls,
+} from "@zxing/browser"
+
+// Expected per-frame while aiming (no QR in view, blur, partial code).
+// Matched by name to avoid a direct dependency on @zxing/library.
+const BENIGN_SCAN_ERRORS = new Set([
+  "NotFoundException",
+  "ChecksumException",
+  "FormatException",
+])
 
 type QrScannerProps = {
   onScan: (data: string) => void
@@ -16,13 +27,28 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
 
+  // Keep latest callbacks in refs so the scanner effect doesn't restart
+  // every time the parent re-renders (its inline handlers are new each render).
+  const onScanRef = useRef(onScan)
+  const onErrorRef = useRef(onError)
+  onScanRef.current = onScan
+  onErrorRef.current = onError
+
   useEffect(() => {
     if (typeof navigator === "undefined") return
 
     let cancelled = false
     let stream: MediaStream | null = null
     let controls: IScannerControls | null = null
-    const codeReader = new BrowserMultiFormatReader()
+    let settled = false
+    // QR-only reader: TOTP setup codes are always QR. Using the multi-format
+    // reader tries every 1D/2D decoder per frame, which spams
+    // "MultiFormatReader: non-ReaderException" warns from the Reed-Solomon
+    // path and burns CPU on mobile.
+    const codeReader = new BrowserQRCodeReader(undefined, {
+      delayBetweenScanAttempts: 200,
+      delayBetweenScanSuccess: 500,
+    })
 
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -50,12 +76,33 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
         video.srcObject = stream
         await video.play().catch(() => {})
 
-        controls = await codeReader.decodeFromStream(stream, video, (result) => {
-          if (cancelled) return
-          if (result) onScan(result.getText())
-        })
+        controls = await codeReader.decodeFromStream(
+          stream,
+          video,
+          (result, err) => {
+            if (cancelled || settled) return
+            if (result) {
+              settled = true
+              const text = result.getText()
+              // Stop the scan loop before notifying: the parent switches to
+              // manual mode (unmounting us), and without this the callback
+              // fires every frame until unmount completes.
+              controls?.stop()
+              onScanRef.current(text)
+              return
+            }
+            if (err) {
+              // Per-frame misses are expected while aiming — swallow them
+              // silently instead of tearing down the camera.
+              if (err instanceof Error && BENIGN_SCAN_ERRORS.has(err.name)) {
+                return
+              }
+              onErrorRef.current?.(err)
+            }
+          }
+        )
 
-        setStatus("active")
+        if (!cancelled) setStatus("active")
       } catch (err) {
         if (cancelled) return
         stream?.getTracks().forEach((t) => t.stop())
@@ -68,7 +115,7 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
           setError("Failed to start the camera. Please try again.")
         }
         setStatus("error")
-        onError?.(e)
+        onErrorRef.current?.(e)
       }
     }
 
@@ -87,7 +134,8 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
         videoRef.current.srcObject = null
       }
     }
-  }, [attempt, onScan, onError])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt])
 
   if (status === "error") {
     return (

@@ -29,9 +29,8 @@ type AuthenticatorAppProps = {
 
 export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProps) {
   const { isUnlocked, clientSession } = useMasterKey()
-  const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds, online } = useAuthenticator()
+  const { entries, loading, initialized, searchQuery, setSearchQuery, toggleFavorite, tags, selectedTagIds, setSelectedTagIds } = useAuthenticator()
   const { message, visible, dismissible, hide: hideToast, show: showToast } = useToast()
-  const offlineDismissedRef = useRef(false)
 
   const [addOpen, setAddOpen] = useState(() => initialAction === "add")
   const [addMode, setAddMode] = useState<"scan" | "manual">("scan")
@@ -43,23 +42,7 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
   const isStuck = clientSession && !isUnlocked && !initialized
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    if (!online) {
-      if (!offlineDismissedRef.current) {
-        showToast("No connection to the internet", { sticky: true, dismissible: true })
-      }
-    } else {
-      offlineDismissedRef.current = false
-      hideToast()
-    }
-  }, [online, showToast, hideToast])
-
   const openAdd = (mode: "scan" | "manual" = "scan") => {
-    if (!online) {
-      offlineDismissedRef.current = false
-      showToast("No connection to the internet", { sticky: true, dismissible: true })
-      return
-    }
     setAddMode(mode)
     setAddOpen(true)
   }
@@ -83,7 +66,7 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
         localStorage.removeItem("relay-vault-device-id")
       } catch {}
       window.location.href = "/oauth/logout?returnTo=/oauth/start"
-    }, 10_000)
+    }, 3_000)
 
     return () => {
       if (timeoutRef.current) {
@@ -254,10 +237,7 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
           message={message}
           visible={visible}
           dismissible={dismissible}
-          onHide={() => {
-            offlineDismissedRef.current = true
-            hideToast()
-          }}
+          onHide={hideToast}
         />
       </AnimatePresence>
     </div>

@@ -64,10 +64,9 @@ export default function EntryCard({
     setFaviconFailed(false)
   }, [entry.id])
 
-  const maskedAccount =
-    settings.hideEmail && entry.plaintext.accountName.includes("@")
-      ? entry.plaintext.accountName.replace(/(.)(.*)(?=@)/, (_, first) => first + "•".repeat(6))
-      : entry.plaintext.accountName
+  const maskedAccount = settings.hideAccountNames
+    ? "•".repeat(8)
+    : entry.plaintext.accountName
 
   const displayCode = settings.hideCodes ? "•".repeat(formattedCode.length) : formattedCode
   const displayNextCode = settings.hideCodes ? "•".repeat(formattedNextCode.length) : formattedNextCode

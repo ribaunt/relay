@@ -38,7 +38,7 @@ export default function DetailPanel({
   onToggleFavorite,
 }: DetailPanelProps) {
   const isDesktop = useIsDesktop()
-  const { editEntry, deleteEntry, entries, tags, online } = useAuthenticator()
+  const { editEntry, deleteEntry, entries, tags } = useAuthenticator()
   const { settings } = useSettings()
   const [copied, setCopied] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -166,10 +166,9 @@ export default function DetailPanel({
   const vemetricFaviconUrl = getFaviconUrl(entry.plaintext.site)
   const faviconUrl = cachedFaviconUrl ?? vemetricFaviconUrl
 
-  const maskedAccount =
-    settings.hideEmail && entry.plaintext.accountName.includes("@")
-      ? entry.plaintext.accountName.replace(/(.)(.*)(?=@)/, (_, first) => first + "•".repeat(6))
-      : entry.plaintext.accountName
+  const maskedAccount = settings.hideAccountNames
+    ? "•".repeat(8)
+    : entry.plaintext.accountName
 
   const displayCode = settings.hideCodes ? "•".repeat(formattedCode.length) : formattedCode
 
@@ -300,9 +299,7 @@ export default function DetailPanel({
         <TextureButton
           variant="secondary"
           className="w-full disabled:opacity-50"
-          disabled={!online}
           onClick={handleEditOpen}
-          title={!online ? "Editing requires a connection" : undefined}
         >
           <HugeiconsIcon icon={Edit} size={18} strokeWidth={1.5} />
           Edit
@@ -310,21 +307,14 @@ export default function DetailPanel({
         <TextureButton
           variant="destructive"
           className="w-full disabled:opacity-50"
-          disabled={!online}
           onClick={() => {
             setError(null)
             setDeleteOpen(true)
           }}
-          title={!online ? "Deleting requires a connection" : undefined}
         >
           <HugeiconsIcon icon={Delete} size={18} strokeWidth={1.5} />
           Delete
         </TextureButton>
-        {!online && (
-          <p className="text-center text-xs text-muted-foreground">
-            Reconnect to edit or delete accounts.
-          </p>
-        )}
       </div>
     </>
   )
@@ -394,7 +384,7 @@ export default function DetailPanel({
       <div className="shrink-0 border-t p-4 space-y-2">
         <TextureButton
           onClick={handleSave}
-          disabled={!issuer || !accountName || loading || !online}
+          disabled={!issuer || !accountName || loading}
           className="w-full disabled:opacity-50"
         >
           {loading ? <Spinner size={18} color="currentColor" /> : "Save"}
@@ -431,7 +421,7 @@ export default function DetailPanel({
           variant="destructive"
           className="w-full disabled:opacity-50"
           onClick={handleDelete}
-          disabled={loading || !online}
+          disabled={loading}
         >
           {loading ? <Spinner size={18} color="currentColor" /> : "Delete"}
         </TextureButton>

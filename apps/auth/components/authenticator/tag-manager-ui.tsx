@@ -5,6 +5,7 @@ import { AddCircleIcon, Delete } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Spinner } from "@/components/ui/spinner"
 import { TextureButton } from "@/components/ui/texture-button"
 import { useAuthenticator } from "@/components/authenticator-provider"
 import TagBadge from "./tag-badge"
@@ -28,10 +29,11 @@ type TagManagerUiProps = {
 }
 
 export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiProps) {
-  const { tags, addTag, deleteTag, online } = useAuthenticator()
+  const { tags, addTag, deleteTag } = useAuthenticator()
   const [newTagName, setNewTagName] = useState("")
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[5]!)
   const [isCreating, setIsCreating] = useState(false)
+  const [creating, setCreating] = useState(false)
 
   const handleToggleTag = (tagId: string) => {
     if (selectedTagIds.includes(tagId)) {
@@ -43,7 +45,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
 
   const handleCreateTag = async () => {
     const name = newTagName.trim()
-    if (!name) return
+    if (!name || creating) return
+    setCreating(true)
     try {
       const tag = await addTag({ name, color: newTagColor })
       onChange([...selectedTagIds, tag.id])
@@ -52,6 +55,8 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
       setIsCreating(false)
     } catch (error) {
       console.error("Failed to create tag:", error)
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -85,8 +90,7 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
                   e.stopPropagation()
                   handleDeleteTag(tag.id)
                 }}
-                className="tag-delete-badge absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:flex disabled:opacity-40"
-                disabled={!online}
+                className="tag-delete-badge absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:flex"
                 aria-label={`Delete tag ${tag.name}`}
               >
                 <HugeiconsIcon icon={Delete} size={8} strokeWidth={2} />
@@ -129,10 +133,19 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
           <div className="flex gap-2">
             <TextureButton
               onClick={handleCreateTag}
-              disabled={!newTagName.trim() || !online}
+              disabled={creating || !newTagName.trim()}
               className="flex-1 disabled:opacity-50"
             >
-              Create
+              {creating ? (
+                <span className="relative flex items-center justify-center">
+                  <span className="opacity-0">Create</span>
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <Spinner size={18} color="currentColor" />
+                  </span>
+                </span>
+              ) : (
+                "Create"
+              )}
             </TextureButton>
             <TextureButton
               variant="secondary"
@@ -148,8 +161,7 @@ export default function TagManagerUi({ selectedTagIds, onChange }: TagManagerUiP
       ) : (
         <TextureButton
           variant="secondary"
-          className="w-full disabled:opacity-50"
-          disabled={!online}
+          className="w-full"
           onClick={() => setIsCreating(true)}
         >
           <HugeiconsIcon icon={AddCircleIcon} size={16} strokeWidth={1.5} />

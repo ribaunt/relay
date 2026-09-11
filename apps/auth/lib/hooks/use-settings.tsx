@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 
 type Settings = {
-  hideEmail: boolean
+  hideAccountNames: boolean
   hideCodes: boolean
 }
 
@@ -15,7 +15,7 @@ type SettingsContextValue = {
 const STORAGE_KEY = "relay-auth-settings"
 
 const defaultSettings: Settings = {
-  hideEmail: false,
+  hideAccountNames: false,
   hideCodes: false,
 }
 
@@ -25,7 +25,14 @@ function loadSettings(): Settings {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored)
-      return { ...defaultSettings, ...parsed }
+      // Migrate the legacy `hideEmail` key.
+      const { hideEmail: legacyHideEmail, ...rest } = parsed
+      return {
+        ...defaultSettings,
+        ...rest,
+        hideAccountNames:
+          rest.hideAccountNames ?? legacyHideEmail ?? defaultSettings.hideAccountNames,
+      }
     }
   } catch {}
   return defaultSettings

@@ -1,14 +1,20 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
+import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { TextureButton } from "@/components/ui/texture-button"
 import {
   Drawer,
   DrawerContent,
 } from "@/components/ui/drawer"
 import { useIsDesktop } from "@/lib/hooks/use-media-query"
 import { useSettings } from "@/lib/hooks/use-settings"
+import { useAuthenticator } from "@/components/authenticator-provider"
+import { buildTotpCsv, downloadTextFile } from "@/lib/authenticator/export"
+import { cn } from "@/lib/utils"
 
 type SettingsDrawerProps = {
   open: boolean
@@ -18,6 +24,15 @@ type SettingsDrawerProps = {
 export default function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
   const isDesktop = useIsDesktop()
   const { settings, updateSetting } = useSettings()
+  const { entries, tags } = useAuthenticator()
+  const [exported, setExported] = useState(false)
+  const exportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (exportTimerRef.current) clearTimeout(exportTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) {
@@ -45,14 +60,14 @@ export default function SettingsDrawer({ open, onOpenChange }: SettingsDrawerPro
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Hide email addresses</Label>
+                <Label className="text-sm font-medium">Hide account names</Label>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Hide your email addresses from the UI. This won&apos;t affect search functionality.
+                  Hide your account names from the UI. This won&apos;t affect search functionality.
                 </p>
               </div>
               <Switch
-                checked={settings.hideEmail}
-                onCheckedChange={(v: boolean) => updateSetting("hideEmail", v)}
+                checked={settings.hideAccountNames}
+                onCheckedChange={(v: boolean) => updateSetting("hideAccountNames", v)}
               />
             </div>
           </div>
@@ -70,6 +85,55 @@ export default function SettingsDrawer({ open, onOpenChange }: SettingsDrawerPro
                 onCheckedChange={(v: boolean) => updateSetting("hideCodes", v)}
               />
             </div>
+          </div>
+
+          <div className="space-y-4 border-t pt-8 mt-2">
+            <h4 className="text-base font-semibold">Export</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Download your accounts as a CSV file, including an otpauth URI column for easy import elsewhere.
+            </p>
+            <p className="text-xs font-medium text-destructive leading-relaxed">
+              Warning: this file holds the unencrypted secrets of your accounts. Anyone with access to it can sign in as you — store it somewhere safe and delete it when you&apos;re done.
+            </p>
+            <TextureButton
+              variant={exported ? "success" : "secondary"}
+              size="sm"
+              onClick={() => {
+                try {
+                  const csv = buildTotpCsv(entries, tags)
+                  const date = new Date().toISOString().slice(0, 10)
+                  downloadTextFile(`relay-otp-export-${date}.csv`, csv)
+                } finally {
+                  setExported(true)
+                  if (exportTimerRef.current) clearTimeout(exportTimerRef.current)
+                  exportTimerRef.current = setTimeout(() => setExported(false), 2000)
+                }
+              }}
+              disabled={entries.length === 0}
+            >
+              <span className="relative flex items-center justify-center">
+                <span
+                  className={cn(
+                    "flex items-center gap-2 transition-all duration-300 ease-in-out",
+                    exported ? "scale-95 opacity-0" : "scale-100 opacity-100"
+                  )}
+                >
+                  Export as CSV
+                </span>
+                <span
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center gap-2 text-white transition-all duration-300 ease-in-out",
+                    exported ? "scale-100 opacity-100" : "scale-95 opacity-0"
+                  )}
+                >
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={1.5} />
+                  Exported
+                </span>
+              </span>
+            </TextureButton>
+            {entries.length === 0 && (
+              <p className="text-xs text-muted-foreground">No accounts to export yet.</p>
+            )}
           </div>
         </div>
       </DrawerContent>

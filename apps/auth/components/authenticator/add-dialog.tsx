@@ -34,7 +34,7 @@ type AddDialogProps = {
 
 export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: AddDialogProps) {
   const isDesktop = useIsDesktop()
-  const { addEntry, online } = useAuthenticator()
+  const { addEntry } = useAuthenticator()
   const [mode, setMode] = useState<"scan" | "manual">(initialMode)
   const [issuer, setIssuer] = useState("")
   const [accountName, setAccountName] = useState("")
@@ -254,16 +254,10 @@ export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: 
         <p className="text-sm text-destructive">{error}</p>
       )}
 
-      {!online && (
-        <p className="text-sm text-muted-foreground">
-          You&apos;re offline — reconnect to save accounts.
-        </p>
-      )}
-
       {mode === "manual" && (
         <TextureButton
           onClick={handleSave}
-          disabled={loading || !online}
+          disabled={loading}
           className={cn("w-full disabled:opacity-50", hasFieldErrors && "border-destructive/50 text-destructive hover:text-destructive")}
         >
           {loading ? <Spinner size={18} color="currentColor" /> : hasFieldErrors ? "Fill required fields" : "Save"}

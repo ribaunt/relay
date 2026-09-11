@@ -15,30 +15,6 @@ function shouldDoGlobalLogout(value: string | null): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes"
 }
 
-function addSecureLogoutScript(html: string): string {
-  const script = `
-<script>
-(async function() {
-  try {
-    if (window.caches) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(r => r.unregister()));
-    }
-    if (window.indexedDB) {
-      const dbs = await indexedDB.databases();
-      await Promise.all(dbs.map(db => indexedDB.deleteDatabase(db.name)));
-    }
-    try { localStorage.removeItem("relay-vault-device-id"); } catch(e) {}
-  } catch(e) { console.warn('Logout cleanup:', e); }
-})();
-</script>`
-  return html.replace("</body>", `${script}</body>`)
-}
-
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const returnTo = sanitizeReturnTo(requestUrl.searchParams.get("returnTo"), "/")

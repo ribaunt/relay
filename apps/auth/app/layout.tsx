@@ -3,20 +3,15 @@ import { MasterKeyProvider } from "@/components/master-key-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthenticatorProvider } from "@/components/authenticator-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { PWARegister } from "@/components/pwa-register"
+import { SwCleanup } from "@/components/sw-cleanup"
 import { cn } from "@/lib/utils"
 import type { Viewport, Metadata } from "next"
 
 export const metadata: Metadata = {
-  manifest: "/manifest.webmanifest",
+  title: "Relay Auth",
   icons: [
     { rel: "apple-touch-icon", url: "/icon.svg" },
   ],
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Relay Auth",
-  },
   formatDetection: {
     email: false,
     address: false,
@@ -39,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={cn("antialiased", "font-sans")}>
       <body>
-        <PWARegister />
+        <SwCleanup />
         <ThemeProvider>
           <TooltipProvider>
             <MasterKeyProvider>
