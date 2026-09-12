@@ -466,14 +466,7 @@ export default function SettingsPage() {
     <main className={styles.page}>
       <section className={styles.shell}>
         <header className={styles.header}>
-          <div>
-            <p className={styles.kicker}>Account center</p>
-            <h1 className={styles.title}>Settings</h1>
-            <p className={styles.subtitle}>
-              Manage profile, email, and password with secure workflows designed
-              for every device.
-            </p>
-          </div>
+          <h1 className={styles.title}>Settings</h1>
           <div className={styles.headerActions}>
             <button
               type="button"
@@ -744,7 +737,7 @@ export default function SettingsPage() {
 
               <button
                 type="button"
-                className={`${styles.button} ${styles.buttonWide}`}
+                className={styles.button}
                 disabled={savingPassword}
                 onClick={() => void changePassword()}
               >

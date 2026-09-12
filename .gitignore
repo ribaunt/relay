@@ -45,3 +45,10 @@ convex/betterAuth/_generated/
 
 # pem keys
 keys/
+
+# ai files
+.codex/
+.cursor/
+.github/
+.opencode/
+.qwen/

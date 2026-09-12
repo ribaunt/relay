@@ -269,15 +269,13 @@ export default function AddDialog({ open, onOpenChange, initialMode = "scan" }: 
   return (
     <Drawer
       open={open}
-      onOpenChange={(open) => {
-        if (!open) {
-          resetForm()
-        } else {
-          setMode(initialMode)
-          setError(null)
-          setFieldErrors({})
-        }
-        onOpenChange(open)
+      onOpenChange={(nextOpen) => {
+        // Fires on user dismiss (drag/overlay). Reset here — an event
+        // callback, not an effect — so the next open starts pristine.
+        // (The opening tab itself is handled via `key` remount by the parent,
+        // since Vaul doesn't report programmatic opens here.)
+        if (!nextOpen) resetForm()
+        onOpenChange(nextOpen)
       }}
       noBodyStyles
       direction={isDesktop ? "right" : "bottom"}

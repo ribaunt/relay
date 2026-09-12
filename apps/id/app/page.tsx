@@ -185,9 +185,23 @@ export default function Home() {
             {menuOpen && (
               <div className={styles.userMenu} role="menu" aria-label="Account actions">
                 <div className={styles.userMenuHeader}>
-                  <div className={styles.userMenuHeaderTitle}>{displayName}</div>
-                  <div className={styles.userMenuHeaderSub}>Manage your account</div>
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt=""
+                      className={styles.userMenuHeaderAvatarImage}
+                    />
+                  ) : (
+                    <div className={styles.userMenuHeaderAvatar} aria-hidden="true">
+                      {avatarLetter}
+                    </div>
+                  )}
+                  <div className={styles.userMenuHeaderText}>
+                    <div className={styles.userMenuHeaderTitle}>{displayName}</div>
+                    <div className={styles.userMenuHeaderSub}>Manage your account</div>
+                  </div>
                 </div>
+                <div className={styles.userMenuDivider} aria-hidden="true" />
 
                 <button
                   type="button"
@@ -196,7 +210,7 @@ export default function Home() {
                   role="menuitem"
                 >
                   <span className={styles.userMenuItemIcon} aria-hidden="true">
-                    <Settings01Icon size={18} />
+                    <Settings01Icon size={16} />
                   </span>
                   <span>Settings</span>
                 </button>
@@ -209,7 +223,7 @@ export default function Home() {
                   disabled={logoutPending}
                 >
                   <span className={styles.userMenuItemIcon} aria-hidden="true">
-                    <Logout02Icon size={18} />
+                    <Logout02Icon size={16} />
                   </span>
                   <span>{logoutPending ? 'Logging out…' : 'Log out'}</span>
                 </button>

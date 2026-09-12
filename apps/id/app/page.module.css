@@ -76,35 +76,30 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: transparent;
   border-radius: 999px;
-  width: 44px;
-  height: 44px;
-  padding: 4px;
+  width: 40px;
+  height: 40px;
+  padding: 2px;
   color: inherit;
   cursor: pointer;
   transition:
     background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+    border-color 0.15s ease;
 }
 
 .userMenuButton:hover,
 .userMenuButton:focus-visible {
-  background: var(--surface-hover);
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 14%, transparent);
+  background: var(--surface);
   outline: none;
 }
 
 .userMenuButton:active {
-  transform: translateY(1px);
+  transform: scale(0.96);
 }
 
 .userMenuButtonOpen {
-  border-color: var(--border-focus);
-  background: var(--surface-hover);
+  background: var(--surface);
 }
 
 .userIdentity {
@@ -133,74 +128,104 @@
 
 .userMenu {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 8px);
   right: 0;
-  min-width: 230px;
-  border-radius: calc(var(--radius-sm) + 4px);
+  min-width: 256px;
+  border-radius: 12px;
   border: 1px solid var(--border);
-  background: color-mix(in oklab, var(--surface) 92%, var(--background));
-  backdrop-filter: blur(8px);
-  box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.2),
-    0 3px 10px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  background: var(--background);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  padding: 4px;
   z-index: 20;
-  animation: userMenuEnter 140ms ease;
+  animation: userMenuEnter 120ms ease-out;
 }
 
 .userMenuHeader {
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+
+.userMenuHeaderAvatar,
+.userMenuHeaderAvatarImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.userMenuHeaderAvatarImage {
+  object-fit: cover;
+}
+
+.userMenuHeaderAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface);
+}
+
+.userMenuHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .userMenuHeaderTitle {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .userMenuHeaderSub {
-  margin-top: 2px;
   font-size: 12px;
+  line-height: 1;
   color: var(--text-secondary);
 }
 
 .userMenuItem {
   width: 100%;
-  height: 42px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-primary);
   text-align: left;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .userMenuItemIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  font-size: 18px;
-  line-height: 1;
-  color: #fff;
+  color: var(--text-secondary);
 }
 
 .userMenuItem:hover,
 .userMenuItem:focus-visible {
-  background: var(--surface-hover);
+  background: var(--surface);
   outline: none;
 }
 
 .userMenuItem:disabled {
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -208,10 +233,14 @@
   color: var(--error);
 }
 
+.userMenuDanger .userMenuItemIcon {
+  color: var(--error);
+}
+
 .userMenuDivider {
   height: 1px;
   background: var(--border);
-  margin: 2px 8px;
+  margin: 4px;
 }
 
 .userAvatar {
@@ -253,7 +282,7 @@
 @keyframes userMenuEnter {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
+    transform: translateY(-4px) scale(0.98);
   }
   to {
     opacity: 1;

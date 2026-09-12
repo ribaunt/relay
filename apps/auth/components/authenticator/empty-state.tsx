@@ -2,7 +2,7 @@
 
 import { QrCode, Keyboard } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Button } from "@/components/ui/button"
+import { TextureButton } from "@/components/ui/texture-button"
 
 type EmptyStateProps = {
   onScanQr: () => void
@@ -12,9 +12,11 @@ type EmptyStateProps = {
 export default function EmptyState({ onScanQr, onManualEntry }: EmptyStateProps) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6">
-      <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted">
-        <HugeiconsIcon icon={QrCode} size={48} className="text-muted-foreground" />
-      </div>
+      <img
+        src="/brand/panda-running.png"
+        alt="Running panda"
+        className="h-36 w-36 rounded-3xl object-cover"
+      />
 
       <div className="text-center">
         <h2 className="text-xl font-semibold">Your authenticator is empty</h2>
@@ -24,14 +26,14 @@ export default function EmptyState({ onScanQr, onManualEntry }: EmptyStateProps)
       </div>
 
       <div className="flex flex-col gap-3 w-full max-w-sm">
-        <Button onClick={onScanQr} className="w-full">
-          <HugeiconsIcon icon={QrCode} size={18} className="mr-2" />
+        <TextureButton onClick={onScanQr}>
+          <HugeiconsIcon icon={QrCode} size={18} />
           Scan QR Code
-        </Button>
-        <Button onClick={onManualEntry} variant="outline" className="w-full">
-          <HugeiconsIcon icon={Keyboard} size={18} className="mr-2" />
+        </TextureButton>
+        <TextureButton onClick={onManualEntry} variant="secondary">
+          <HugeiconsIcon icon={Keyboard} size={18} />
           Manual Entry
-        </Button>
+        </TextureButton>
       </div>
     </div>
   )

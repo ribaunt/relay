@@ -34,6 +34,7 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
 
   const [addOpen, setAddOpen] = useState(() => initialAction === "add")
   const [addMode, setAddMode] = useState<"scan" | "manual">("scan")
+  const [addKey, setAddKey] = useState(0)
   const [detailEntry, setDetailEntry] = useState<OtpEntry | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -44,6 +45,9 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
 
   const openAdd = (mode: "scan" | "manual" = "scan") => {
     setAddMode(mode)
+    // Remount the dialog so its tab initializes from the requested mode.
+    // (Internal useState can't pick up a changed initialMode otherwise.)
+    setAddKey((k) => k + 1)
     setAddOpen(true)
   }
 
@@ -190,6 +194,17 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
             onScanQr={() => openAdd("scan")}
             onManualEntry={() => openAdd("manual")}
           />
+        ) : filteredEntries.length === 0 ? (
+          <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 p-6">
+            <img
+              src="/brand/panda-peaceful.png"
+              alt="Peaceful panda"
+              className="h-32 w-32 rounded-3xl object-cover"
+            />
+            <p className="text-sm text-muted-foreground">
+              We couldn&apos;t find any results.
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {filteredEntries.map((entry) => (
@@ -220,6 +235,7 @@ export default function AuthenticatorApp({ initialAction }: AuthenticatorAppProp
       />
 
       <AddDialog
+        key={addKey}
         open={addOpen}
         onOpenChange={setAddOpen}
         initialMode={addMode}
