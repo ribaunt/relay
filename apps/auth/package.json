@@ -4,8 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "predev": "node ../../scripts/sync-assets.mjs",
     "dev": "pnpm dev:convex & next dev --turbopack --port 3000",
     "dev:convex": "convex dev --typecheck disable",
+    "prebuild": "node ../../scripts/sync-assets.mjs",
     "build": "pnpm build:convex && next build",
     "build:convex": "convex dev --once",
     "start": "next start",

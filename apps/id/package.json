@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node ../../scripts/sync-assets.mjs",
     "dev": "next dev --port 3001",
+    "prebuild": "node ../../scripts/sync-assets.mjs",
     "build": "convex dev --once && next build",
     "start": "next start --port 3001",
     "setup:relay-auth-client": "npx convex run oauthClients:ensureRelayAuthClient"
